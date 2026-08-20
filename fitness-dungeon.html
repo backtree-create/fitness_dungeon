@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>リアル体つくりダンジョン | 保健体育 NIGHT GAMES</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0B1120; --navy2:#131C33;
+  --cave:#1A1410; --cave2:#241B12;
+  --amber:#FFC53D; --amber-dim:#8A6A22;
+  --board:#171008; --board-line:#3A2A12;
+  --white:#F5F1E8; --red:#E5533C; --good:#5AD38A; --torch:#FF8A3D;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--navy);overflow:hidden;
+  font-family:'Zen Kaku Gothic New',sans-serif;color:var(--white);
+  touch-action:manipulation;user-select:none;-webkit-user-select:none}
+#wrap{height:100%;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(120% 90% at 50% 0%, #16213C 0%, var(--navy) 60%)}
+#stage{position:relative;width:min(100vw,177.7vh);aspect-ratio:16/9;max-height:100vh;
+  background:var(--navy);overflow:hidden;box-shadow:0 0 60px rgba(0,0,0,.6);display:flex}
+
+/* 左：カメラ / 右：ゲーム */
+#camPane{position:relative;width:34%;height:100%;background:#05070E;border-right:2px solid var(--board-line);overflow:hidden}
+#cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+#camCv{position:absolute;inset:0;width:100%;height:100%}
+#camStatus{position:absolute;left:0;right:0;bottom:0;padding:2% 4%;
+  background:rgba(5,7,14,.75);font-weight:700;font-size:clamp(10px,1.7vmin,14px);line-height:1.5;text-align:center}
+#camStatus.warn{color:var(--red)}
+#repFlash{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);
+  font-family:'Anton',sans-serif;font-size:clamp(30px,8vmin,72px);color:var(--good);
+  text-shadow:0 0 18px rgba(90,211,138,.7);opacity:0;pointer-events:none}
+#repFlash.show{animation:pop .5s}
+@keyframes pop{0%{opacity:1;transform:translate(-50%,-50%) scale(.6)}70%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.2)}}
+#depthMeter{position:absolute;right:4%;top:12%;bottom:22%;width:5%;min-width:14px;
+  background:rgba(0,0,0,.45);border:1px solid var(--board-line);border-radius:6px;overflow:hidden;display:none}
+#depthFill{position:absolute;bottom:0;left:0;right:0;height:0%;background:var(--amber)}
+#depthGoal{position:absolute;left:0;right:0;height:2px;background:var(--good)}
+
+#gamePane{position:relative;flex:1;height:100%}
+#gv{position:absolute;inset:0;width:100%;height:100%;display:block}
+
+/* 指示バナー */
+#task{position:absolute;left:50%;bottom:3%;transform:translateX(-50%);
+  background:var(--board);border:2px solid var(--board-line);border-radius:10px;
+  padding:1.2% 3%;text-align:center;min-width:60%;z-index:5;display:none}
+#taskLbl{font-weight:900;font-size:clamp(14px,2.8vmin,24px);color:var(--white)}
+#taskLbl b{color:var(--amber)}
+#taskCnt{font-family:'Anton',sans-serif;color:var(--amber);font-size:clamp(20px,4.5vmin,40px);
+  letter-spacing:.08em;text-shadow:0 0 10px rgba(255,197,61,.45)}
+
+/* 上部：タイム */
+#topHud{position:absolute;top:1.5%;right:1.5%;z-index:5;display:none;gap:8px}
+.miniBoard{background:var(--board);border:2px solid var(--board-line);border-radius:6px;padding:.4em 1em;text-align:center}
+.miniBoard .lbl{font-size:clamp(8px,1.3vmin,12px);font-weight:700;color:var(--amber-dim);letter-spacing:.15em}
+.miniBoard .val{font-family:'Anton',sans-serif;color:var(--amber);font-size:clamp(15px,3vmin,28px);line-height:1.1}
+
+/* 練習モードボタン */
+#practiceBar{position:absolute;left:50%;bottom:14%;transform:translateX(-50%);z-index:6;display:none;gap:10px}
+.pBtn{border:2px solid rgba(242,233,220,.6);background:rgba(20,28,50,.7);color:var(--white);
+  border-radius:10px;font-family:'Zen Kaku Gothic New';font-weight:900;
+  font-size:clamp(13px,2.4vmin,18px);padding:.8em 1.4em;cursor:pointer}
+.pBtn:active{background:rgba(255,197,61,.35);border-color:var(--amber)}
+
+/* オーバーレイ */
+#ovl{position:absolute;inset:0;z-index:10;display:flex;align-items:center;justify-content:center}
+.panel{background:linear-gradient(180deg,rgba(13,18,35,.97),rgba(9,13,26,.97));
+  border:2px solid var(--board-line);border-radius:14px;padding:3% 4.5%;
+  width:min(92%,780px);max-height:94%;overflow-y:auto;text-align:center;
+  box-shadow:0 10px 50px rgba(0,0,0,.7)}
+.eyebrow{font-family:'Anton',sans-serif;color:var(--amber);letter-spacing:.35em;
+  font-size:clamp(11px,1.8vmin,15px);margin-bottom:.6em}
+h1{font-weight:900;font-size:clamp(24px,5.8vmin,52px);line-height:1.2;letter-spacing:.02em}
+h1 .en{display:block;font-family:'Anton',sans-serif;font-weight:400;color:var(--amber);
+  font-size:clamp(13px,2.6vmin,22px);letter-spacing:.28em;margin-top:.35em;text-shadow:0 0 12px rgba(255,197,61,.4)}
+h2{font-weight:900;font-size:clamp(19px,4.4vmin,36px);margin-bottom:.4em}
+p.sub{color:#B9C2D8;font-size:clamp(12px,2.2vmin,16px);line-height:1.9;margin:.9em 0}
+.btn{display:inline-block;border:none;cursor:pointer;border-radius:10px;
+  font-family:'Zen Kaku Gothic New';font-weight:900;letter-spacing:.08em;
+  font-size:clamp(14px,2.8vmin,20px);padding:.7em 1.8em;margin:.35em;
+  background:var(--amber);color:#211502;box-shadow:0 5px 0 #A67C1B}
+.btn:active{transform:translateY(3px);box-shadow:0 2px 0 #A67C1B}
+.btn.ghost{background:transparent;color:var(--white);border:2px solid rgba(242,233,220,.5);box-shadow:none}
+.btn.ghost:active{transform:translateY(2px)}
+.safety{background:rgba(229,83,60,.1);border:1px solid rgba(229,83,60,.5);border-radius:10px;
+  padding:2.5% 4%;margin:1em 0;text-align:left;font-size:clamp(11px,2.1vmin,15px);line-height:2}
+.safety b{color:var(--red)}
+.moveList{display:grid;grid-template-columns:repeat(3,1fr);gap:2%;margin:1.2em 0}
+.moveCard{background:rgba(255,197,61,.07);border:1px solid var(--amber-dim);border-radius:10px;padding:4% 3%}
+.moveCard .mv{font-weight:900;color:var(--amber);font-size:clamp(12px,2.3vmin,18px)}
+.moveCard .fx{font-size:clamp(10px,1.9vmin,14px);color:#B9C2D8;margin-top:.4em;line-height:1.6}
+.trivia{font-size:clamp(11px,2vmin,14px);color:#8FB79E;border-top:1px solid #22304F;
+  margin-top:1.2em;padding-top:1em;line-height:1.8;text-align:left}
+.trivia b{color:var(--good)}
+table.res{width:100%;border-collapse:collapse;margin:1em 0;font-size:clamp(12px,2.4vmin,18px)}
+table.res td{padding:.5em .4em;border-bottom:1px solid #22304F;text-align:left;font-weight:700}
+table.res td:last-child{text-align:right;font-family:'Anton',sans-serif;color:var(--amber)}
+.rank{font-family:'Anton',sans-serif;font-size:clamp(56px,15vmin,140px);line-height:1;
+  color:var(--amber);text-shadow:0 0 30px rgba(255,197,61,.6)}
+.rankMsg{font-weight:900;font-size:clamp(13px,2.8vmin,20px);margin-top:.3em}
+#calibRing{width:clamp(90px,20vmin,150px);height:clamp(90px,20vmin,150px);margin:1em auto;position:relative}
+#calibRing svg{width:100%;height:100%;transform:rotate(-90deg)}
+#calibPct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:'Anton',sans-serif;font-size:clamp(22px,5vmin,40px);color:var(--amber)}
+#err{color:var(--red);font-weight:700;font-size:clamp(11px,2.1vmin,15px);line-height:1.8;margin-top:.6em}
+
+#rotateHint{position:fixed;inset:0;background:var(--navy);z-index:99;display:none;
+  align-items:center;justify-content:center;text-align:center;font-weight:900;
+  font-size:clamp(16px,4.5vw,24px);line-height:2;padding:8%}
+@media (orientation:portrait) and (max-width:600px){ #rotateHint{display:flex} }
+@media (prefers-reduced-motion:reduce){ *{animation:none !important;transition:none !important} }
+</style>
+</head>
+<body>
+<div id="wrap">
+ <div id="stage">
+  <div id="camPane">
+    <video id="cam" autoplay playsinline muted></video>
+    <canvas id="camCv"></canvas>
+    <div id="depthMeter"><div id="depthGoal"></div><div id="depthFill"></div></div>
+    <div id="repFlash">OK!</div>
+    <div id="camStatus">カメラ待機中</div>
+  </div>
+  <div id="gamePane">
+    <canvas id="gv"></canvas>
+    <div id="topHud">
+      <div class="miniBoard"><div class="lbl">TIME</div><div class="val" id="hTime">0.0</div></div>
+      <div class="miniBoard"><div class="lbl">REPS</div><div class="val" id="hReps">0</div></div>
+    </div>
+    <div id="task"><div id="taskLbl"></div><div id="taskCnt"></div></div>
+    <div id="practiceBar">
+      <button class="pBtn" data-mv="step">足踏み</button>
+      <button class="pBtn" data-mv="squat">スクワット</button>
+      <button class="pBtn" data-mv="jump">ジャンプ</button>
+    </div>
+  </div>
+  <div id="ovl"></div>
+ </div>
+</div>
+<div id="rotateHint">画面を横向きにしてください<br><span style="font-weight:700;font-size:.7em;color:#B9C2D8">カメラとダンジョンを並べて表示します</span></div>
+
+<script type="module">
+"use strict";
+/* =========================================================
+   リアル体つくりダンジョン — 保健体育 NIGHT GAMES
+   カメラの前で本当に運動して洞窟を攻略する
+   足踏み=前進 / スクワット=岩を破壊 / ジャンプ=谷越え
+   ========================================================= */
+const $ = s => document.querySelector(s);
+const gv=$('#gv'), g=gv.getContext('2d');
+const camCv=$('#camCv'), cg=camCv.getContext('2d');
+const W=960,H=540;
+function fit(){
+  const d=Math.min(devicePixelRatio||1,2);
+  gv.width=W*d; gv.height=H*d; g.setTransform(d,0,0,d,0,0);
+  const r=$('#camPane').getBoundingClientRect();
+  camCv.width=r.width*d; camCv.height=r.height*d; cg.setTransform(d,0,0,d,0,0);
+}
+fit(); addEventListener('resize',fit);
+
+/* ---------------- Audio ---------------- */
+let AC=null;
+function ac(){ if(!AC){AC=new (window.AudioContext||window.webkitAudioContext)();} if(AC.state==='suspended')AC.resume(); return AC; }
+function tone(f,dur,type='square',vol=.15,slide=0,when=0){
+  const a=ac(),t=a.currentTime+when,o=a.createOscillator(),gn=a.createGain();
+  o.type=type;o.frequency.setValueAtTime(f,t);
+  if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(30,f+slide),t+dur);
+  gn.gain.setValueAtTime(vol,t);gn.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  o.connect(gn).connect(a.destination);o.start(t);o.stop(t+dur+.02);
+}
+function noise(dur,vol=.3,when=0){
+  const a=ac(),t=a.currentTime+when,n=a.sampleRate*dur|0;
+  const b=a.createBuffer(1,n,a.sampleRate),d=b.getChannelData(0);
+  for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*(1-i/n);
+  const s=a.createBufferSource();s.buffer=b;
+  const gn=a.createGain();gn.gain.setValueAtTime(vol,t);
+  s.connect(gn).connect(a.destination);s.start(t);
+}
+const SFX={
+  rep(){tone(660,.1,'square',.13);tone(990,.12,'square',.1,0,.07)},
+  step(){tone(440,.06,'square',.08)},
+  crack(){noise(.15,.3);tone(180,.15,'sawtooth',.15,-80)},
+  smash(){noise(.4,.5);tone(90,.4,'sawtooth',.2,-40)},
+  jump(){tone(300,.18,'square',.1,260)},
+  vault(){tone(400,.3,'square',.12,400)},
+  chest(){[523,659,784,1046,1318].forEach((f,i)=>tone(f,.3,'square',.12,0,i*.12))},
+  buzz(){tone(120,.3,'sawtooth',.16)},
+  go(){tone(880,.2,'sine',.15)},
+};
+
+/* ---------------- ステージ構成 ---------------- */
+function makeSegments(){
+  return [
+    {type:'walk', need:16, done:0, label:'<b>もも上げ足踏み</b>で通路を進め！', unit:'歩'},
+    {type:'rock', need:5,  done:0, label:'<b>スクワット</b>で岩を砕け！', unit:'回'},
+    {type:'walk', need:14, done:0, label:'<b>もも上げ足踏み</b>で先へ！', unit:'歩'},
+    {type:'gap',  need:3,  done:0, label:'<b>ジャンプ</b>でパワーをためて谷を越えろ！', unit:'回'},
+    {type:'walk', need:12, done:0, label:'ゴールはすぐそこ！ <b>足踏み</b>！', unit:'歩'},
+    {type:'rock', need:6,  done:0, label:'最後の大岩だ！ <b>スクワット</b>！', unit:'回'},
+    {type:'goal'},
+  ];
+}
+const MOVE_OF={walk:'step', rock:'squat', gap:'jump'};
+
+/* ---------------- ゲーム状態 ---------------- */
+const S={
+  mode:null,            // 'camera' | 'practice'
+  scene:'menu',         // menu/setup/calib/play/clear
+  segs:[], si:0,
+  t:0, reps:{step:0,squat:0,jump:0},
+  char:{x:0, hop:0, crouch:0, vault:0, walkPh:0},
+  fxParticles:[], shake:0,
+};
+let lastT=performance.now();
+
+/* ---------------- 姿勢検出 ---------------- */
+const POSE={
+  landmarker:null, video:$('#cam'), running:false,
+  sm:{},              // 平滑化済みランドマーク
+  base:null,          // {hipY, kneeL, kneeR, bodyH}
+  calib:{on:false, frames:[], need:70},
+  squatDown:false, jumpUp:false, lastJumpT:0,
+  kneeUp:{L:false,R:false}, lastStepT:0,
+  visible:false, lostT:0,
+};
+const LM={NOSE:0,LS:11,RS:12,LH:23,RH:24,LK:25,RK:26,LA:27,RA:28};
+const NEED=[LM.LS,LM.RS,LM.LH,LM.RH,LM.LK,LM.RK,LM.LA,LM.RA];
+
+async function initPose(){
+  const stat=$('#camStatus');
+  stat.textContent='AIモデルを読み込み中…（初回は少し時間がかかります）';
+  const url='https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
+  const vision=await import(url);
+  const files=await vision.FilesetResolver.forVisionTasks(url+'/wasm');
+  const opts=d=>({baseOptions:{
+      modelAssetPath:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
+      delegate:d},
+    runningMode:'VIDEO', numPoses:1});
+  try{ POSE.landmarker=await vision.PoseLandmarker.createFromOptions(files,opts('GPU')); }
+  catch(e){ POSE.landmarker=await vision.PoseLandmarker.createFromOptions(files,opts('CPU')); }
+  stat.textContent='カメラを起動中…';
+  const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false});
+  POSE.video.srcObject=stream;
+  await new Promise(r=>POSE.video.onloadedmetadata=r);
+  await POSE.video.play();
+  POSE.running=true;
+  stat.textContent='全身（頭〜足首）が映るように下がろう';
+  poseLoop();
+}
+let lastVideoT=-1;
+function poseLoop(){
+  if(!POSE.running)return;
+  requestAnimationFrame(poseLoop);
+  const v=POSE.video;
+  if(v.currentTime===lastVideoT)return;
+  lastVideoT=v.currentTime;
+  let res;
+  try{ res=POSE.landmarker.detectForVideo(v, performance.now()); }catch(e){ return; }
+  const lm=res.landmarks && res.landmarks[0];
+  drawCam(lm);
+  if(!lm){ POSE.visible=false; return; }
+  // 必要部位の可視性チェック
+  let vis=true;
+  for(const i of NEED){ if(!lm[i] || (lm[i].visibility!=null && lm[i].visibility<0.4)) vis=false; }
+  POSE.visible=vis;
+  if(!vis) return;
+  // 平滑化（EMA）
+  const a=0.45;
+  for(const i of NEED){
+    if(!POSE.sm[i]) POSE.sm[i]={x:lm[i].x,y:lm[i].y};
+    POSE.sm[i].x+= a*(lm[i].x-POSE.sm[i].x);
+    POSE.sm[i].y+= a*(lm[i].y-POSE.sm[i].y);
+  }
+  const p=POSE.sm;
+  const hipY=(p[LM.LH].y+p[LM.RH].y)/2;
+  const shY=(p[LM.LS].y+p[LM.RS].y)/2;
+  const ankY=(p[LM.LA].y+p[LM.RA].y)/2;
+  // キャリブレーション
+  if(POSE.calib.on){
+    POSE.calib.frames.push({hipY,kneeL:p[LM.LK].y,kneeR:p[LM.RK].y,bodyH:ankY-shY});
+    const pct=Math.min(100, Math.round(POSE.calib.frames.length/POSE.calib.need*100));
+    updCalib(pct);
+    if(POSE.calib.frames.length>=POSE.calib.need){
+      const f=POSE.calib.frames, n=f.length;
+      const avg=k=>f.reduce((s,o)=>s+o[k],0)/n;
+      POSE.base={hipY:avg('hipY'),kneeL:avg('kneeL'),kneeR:avg('kneeR'),bodyH:Math.max(.2,avg('bodyH'))};
+      POSE.calib.on=false;
+      calibDone();
+    }
+    return;
+  }
+  if(!POSE.base || S.scene!=='play') return;
+  detectMoves(hipY,p);
+}
+function detectMoves(hipY,p){
+  const b=POSE.base, bh=b.bodyH;
+  const now=performance.now()/1000;
+  const seg=S.segs[S.si];
+  const active= seg ? MOVE_OF[seg.type] : null;
+  // --- スクワット ---
+  const depth=(hipY-b.hipY)/bh;
+  if(active==='squat'){
+    $('#depthMeter').style.display='block';
+    $('#depthFill').style.height=Math.min(100,Math.max(0,depth/0.22*100))+'%';
+    $('#depthGoal').style.bottom='81%'; // 0.18/0.22
+  } else $('#depthMeter').style.display='none';
+  if(!POSE.squatDown && depth>0.18){ POSE.squatDown=true; SFX.crack(); }
+  if(POSE.squatDown && depth<0.07){ POSE.squatDown=false; onRep('squat'); }
+  // --- ジャンプ ---
+  const rise=(b.hipY-hipY)/bh;
+  if(!POSE.jumpUp && rise>0.09 && now-POSE.lastJumpT>0.5){ POSE.jumpUp=true; }
+  if(POSE.jumpUp && rise<0.03){ POSE.jumpUp=false; POSE.lastJumpT=now; onRep('jump'); }
+  // --- もも上げ足踏み ---
+  const liftL=(b.kneeL-p[LM.LK].y)/bh;
+  const liftR=(b.kneeR-p[LM.RK].y)/bh;
+  stepKnee('L',liftL,now); stepKnee('R',liftR,now);
+}
+function stepKnee(side,lift,now){
+  if(!POSE.kneeUp[side] && lift>0.16 && now-POSE.lastStepT>0.16){
+    POSE.kneeUp[side]=true; POSE.lastStepT=now; onRep('step');
+  }
+  if(POSE.kneeUp[side] && lift<0.07) POSE.kneeUp[side]=false;
+}
+/* カメラ映像に骨格を描く */
+const BONES=[[11,12],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28],[11,13],[13,15],[12,14],[14,16]];
+function drawCam(lm){
+  const r=$('#camPane').getBoundingClientRect();
+  cg.clearRect(0,0,r.width,r.height);
+  if(!lm)return;
+  // 映像は object-fit:cover + 左右反転。同じ変換で骨格を重ねる
+  const v=POSE.video;
+  const sc=Math.max(r.width/v.videoWidth, r.height/v.videoHeight);
+  const dw=v.videoWidth*sc, dh=v.videoHeight*sc;
+  const ox=(r.width-dw)/2, oy=(r.height-dh)/2;
+  const X=p=> r.width-(ox+p.x*dw);   // 反転
+  const Y=p=> oy+p.y*dh;
+  cg.strokeStyle='rgba(90,211,138,.9)'; cg.lineWidth=3; cg.lineCap='round';
+  for(const[a2,b2]of BONES){
+    if(!lm[a2]||!lm[b2])continue;
+    cg.beginPath(); cg.moveTo(X(lm[a2]),Y(lm[a2])); cg.lineTo(X(lm[b2]),Y(lm[b2])); cg.stroke();
+  }
+  cg.fillStyle='#FFC53D';
+  for(const i of NEED){ if(lm[i]){cg.beginPath();cg.arc(X(lm[i]),Y(lm[i]),4,0,7);cg.fill();} }
+}
+
+/* ---------------- レップ処理 ---------------- */
+function onRep(mv){
+  if(S.scene!=='play')return;
+  const seg=S.segs[S.si]; if(!seg||seg.type==='goal')return;
+  if(MOVE_OF[seg.type]!==mv){ return; } // いま必要な運動だけカウント
+  seg.done++;
+  S.reps[mv]++;
+  flash(mv==='step'?'GO!':'OK!');
+  if(mv==='step'){ SFX.step(); S.char.walkPh+=Math.PI; }
+  if(mv==='squat'){ SFX.crack(); S.char.crouch=0.5; S.shake=0.25; }
+  if(mv==='jump'){ SFX.jump(); S.char.hop=0.5; }
+  if(seg.done>=seg.need){
+    segClear(seg);
+  }
+  updTask();
+}
+function segClear(seg){
+  if(seg.type==='rock'){ SFX.smash(); S.shake=0.6; burst(); }
+  if(seg.type==='gap'){ SFX.vault(); S.char.vault=1.0; }
+  if(seg.type==='walk'){ SFX.go(); }
+  S.si++;
+  const nx=S.segs[S.si];
+  if(nx && nx.type==='goal'){ setTimeout(finishRun, nx?800:0); }
+  updTask();
+}
+function burst(){
+  for(let i=0;i<26;i++){
+    S.fxParticles.push({x:0,y:0,vx:(Math.random()-0.2)*260,vy:-Math.random()*300,life:0.9+Math.random()*0.4,r:3+Math.random()*6});
+  }
+}
+function flash(txt){
+  const el=$('#repFlash'); el.textContent=txt;
+  el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+}
+
+/* ---------------- 画面 ---------------- */
+const ovl=$('#ovl');
+function screenMenu(){
+  S.scene='menu';
+  $('#task').style.display='none'; $('#topHud').style.display='none';
+  $('#practiceBar').style.display='none';
+  ovl.style.display='flex';
+  ovl.innerHTML=`
+   <div class="panel">
+     <div class="eyebrow">HOKEN-TAIIKU NIGHT GAMES</div>
+     <h1>リアル体つくりダンジョン<span class="en">REAL FITNESS DUNGEON</span></h1>
+     <p class="sub">カメラの前で<b>本当に体を動かして</b>洞窟を攻略する体つくり運動ゲーム。</p>
+     <div class="moveList">
+       <div class="moveCard"><div class="mv">もも上げ足踏み</div><div class="fx">通路を前進</div></div>
+       <div class="moveCard"><div class="mv">スクワット</div><div class="fx">岩を破壊</div></div>
+       <div class="moveCard"><div class="mv">ジャンプ</div><div class="fx">谷を越える</div></div>
+     </div>
+     <div class="safety"><b>安全のために：</b>周囲2歩ぶんのスペースを確保／すべらない床で／準備運動をしてから／息が上がったら休む・水分補給。<b>痛みを感じたらすぐ中止。</b></div>
+     <button class="btn" id="goCam">カメラでプレイ</button>
+     <button class="btn ghost" id="goPractice">練習モード（カメラなし）</button>
+     <button class="btn ghost" id="goFull">全画面</button>
+     <div id="err"></div>
+     <div class="trivia"><b>保体メモ：</b>「体つくり運動」は、体ほぐしの運動と体の動きを高める運動から成る。今日の合言葉は<b>過負荷の原理</b>——いつもより少しだけ強く。</div>
+   </div>`;
+  $('#goCam').onclick=async()=>{
+    ac();
+    if(!window.isSecureContext){
+      $('#err').textContent='カメラはHTTPSでのみ使えます。GitHub Pages等で開くか、練習モードをどうぞ。';
+      return;
+    }
+    $('#goCam').disabled=true; $('#goCam').textContent='準備中…';
+    try{
+      if(!POSE.running) await initPose();
+      S.mode='camera'; screenCalib();
+    }catch(e){
+      console.error(e);
+      $('#goCam').disabled=false; $('#goCam').textContent='カメラでプレイ';
+      $('#err').textContent='カメラまたはAIモデルの準備に失敗しました（'+(e.name||'error')+'）。カメラの許可・通信環境を確認するか、練習モードをどうぞ。';
+    }
+  };
+  $('#goPractice').onclick=()=>{ ac(); S.mode='practice'; startRun(); };
+  $('#goFull').onclick=()=>{ const el=document.documentElement;
+    if(!document.fullscreenElement){(el.requestFullscreen||el.webkitRequestFullscreen||function(){}).call(el);}
+    else{(document.exitFullscreen||function(){}).call(document);} };
+}
+function screenCalib(){
+  S.scene='calib';
+  ovl.style.display='flex';
+  ovl.innerHTML=`
+   <div class="panel">
+     <div class="eyebrow">CALIBRATION</div>
+     <h2>基準の姿勢を覚えます</h2>
+     <p class="sub">左のカメラに<b>頭から足首まで</b>が映るように下がって、<br><b>気をつけの姿勢でじっと立ってください。</b></p>
+     <div id="calibRing">
+       <svg viewBox="0 0 100 100">
+         <circle cx="50" cy="50" r="44" fill="none" stroke="#3A2A12" stroke-width="8"/>
+         <circle id="calibArc" cx="50" cy="50" r="44" fill="none" stroke="#FFC53D" stroke-width="8"
+           stroke-dasharray="276.5" stroke-dashoffset="276.5" stroke-linecap="round"/>
+       </svg>
+       <div id="calibPct">0%</div>
+     </div>
+     <p class="sub" id="calibMsg">全身の検出を待っています…</p>
+   </div>`;
+  POSE.calib.frames=[]; POSE.calib.on=true; POSE.base=null;
+  calibWatch();
+}
+function calibWatch(){
+  if(S.scene!=='calib')return;
+  const m=$('#calibMsg');
+  if(m){ m.textContent = POSE.visible? 'そのまま動かないで…' : '全身（頭〜足首）が映るように位置を調整してください'; }
+  if(!POSE.visible && POSE.calib.on){ POSE.calib.frames.length=0; updCalib(0); }
+  setTimeout(calibWatch,300);
+}
+function updCalib(pct){
+  const arc=$('#calibArc'); if(!arc)return;
+  arc.style.strokeDashoffset=String(276.5*(1-pct/100));
+  $('#calibPct').textContent=pct+'%';
+}
+function calibDone(){
+  SFX.rep();
+  ovl.innerHTML=`
+   <div class="panel">
+     <div class="eyebrow">READY</div>
+     <h2>準備完了！</h2>
+     <p class="sub">合図とともにダンジョン探索スタート。<br>指示された運動だけがカウントされます。</p>
+     <button class="btn" id="goRun">探索スタート</button>
+   </div>`;
+  $('#goRun').onclick=()=>startRun();
+}
+function startRun(){
+  S.scene='play'; ovl.style.display='none'; ovl.innerHTML='';
+  S.segs=makeSegments(); S.si=0; S.t=0;
+  S.reps={step:0,squat:0,jump:0};
+  S.char={x:0,hop:0,crouch:0,vault:0,walkPh:0};
+  S.fxParticles=[]; S.shake=0;
+  $('#task').style.display='block'; $('#topHud').style.display='flex';
+  $('#practiceBar').style.display = S.mode==='practice' ? 'flex':'none';
+  $('#camStatus').textContent = S.mode==='camera' ? '検出中：指示された運動をしよう' : '練習モード：ボタンで運動を再現';
+  SFX.go(); updTask();
+}
+function updTask(){
+  const seg=S.segs[S.si];
+  if(!seg){return;}
+  if(seg.type==='goal'){ $('#taskLbl').innerHTML='<b>宝箱だ！</b>'; $('#taskCnt').textContent=''; return; }
+  $('#taskLbl').innerHTML=seg.label;
+  $('#taskCnt').textContent=`${seg.done} / ${seg.need} ${seg.unit}`;
+}
+function rankOf(t){
+  if(t<75) return['S','ダンジョンマスター！ 心肺機能もパワーも一級品。'];
+  if(t<105) return['A','見事な攻略！ 全身をリズムよく使えている。'];
+  if(t<140) return['B','ナイスファイト！ 足踏みのテンポを上げてみよう。'];
+  return['C','完走が何より立派。少しずつ回数を増やしていこう。'];
+}
+function finishRun(){
+  if(S.scene!=='play')return;
+  S.scene='clear'; SFX.chest();
+  $('#task').style.display='none'; $('#practiceBar').style.display='none';
+  const[rk,msg]=rankOf(S.t);
+  const total=S.reps.step+S.reps.squat+S.reps.jump;
+  ovl.style.display='flex';
+  ovl.innerHTML=`
+   <div class="panel">
+     <div class="eyebrow">DUNGEON CLEAR</div>
+     <h2>宝箱を手に入れた！</h2>
+     <table class="res">
+       <tr><td>クリアタイム</td><td>${S.t.toFixed(1)} 秒</td></tr>
+       <tr><td>もも上げ足踏み</td><td>${S.reps.step} 歩</td></tr>
+       <tr><td>スクワット</td><td>${S.reps.squat} 回</td></tr>
+       <tr><td>ジャンプ</td><td>${S.reps.jump} 回</td></tr>
+       <tr><td>合計レップ数</td><td>${total}</td></tr>
+     </table>
+     <div class="rank">RANK ${rk}</div>
+     <div class="rankMsg">${msg}</div>
+     <p class="sub">よくがんばった！ 深呼吸して、水分補給を忘れずに。</p>
+     <button class="btn" id="goAgain">もう一度探索</button>
+     <button class="btn ghost" id="goMenu">タイトルへ</button>
+   </div>`;
+  $('#goAgain').onclick=()=>startRun();
+  $('#goMenu').onclick=()=>screenMenu();
+}
+
+/* 練習モードボタン */
+document.querySelectorAll('.pBtn').forEach(b=>{
+  b.addEventListener('pointerdown',e=>{e.preventDefault();ac();onRep(b.dataset.mv);});
+});
+
+/* ---------------- ダンジョン描画 ---------------- */
+function segStartX(i){ // セグメント i の開始位置（m）
+  let x=0;
+  for(let k=0;k<i;k++){
+    const s=S.segs[k];
+    if(s.type==='walk')x+=s.need*0.45;
+    else if(s.type==='rock')x+=1.6;
+    else if(s.type==='gap')x+=2.6;
+  }
+  return x;
+}
+function charWorldX(){
+  const seg=S.segs[S.si];
+  let x=segStartX(S.si);
+  if(seg && seg.type==='walk') x+=seg.done*0.45;
+  return x;
+}
+const torches=[];
+for(let i=0;i<40;i++) torches.push(3+i*4.2);
+function drawDungeon(t,dt){
+  const ppm=64;
+  const targetX=charWorldX();
+  S.char.x += (targetX-S.char.x)*Math.min(1,dt*6);
+  let cam=S.char.x-4;
+  if(S.shake>0){S.shake-=dt; cam+=Math.sin(t*70)*0.06*S.shake;}
+  // 洞窟背景
+  const bg=g.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,'#0C0906'); bg.addColorStop(.6,'#1A1410'); bg.addColorStop(1,'#241B12');
+  g.fillStyle=bg; g.fillRect(0,0,W,H);
+  // 岩肌（ゆらぎ）
+  g.fillStyle='#221A11';
+  for(let i=0;i<24;i++){
+    const px=((i*90 - cam*ppm*0.5)%2160+2160)%2160-100;
+    const r=34+((i*37)%40);
+    g.beginPath(); g.arc(px, 40+((i*53)%90), r, 0, 7); g.fill();
+  }
+  // たいまつ
+  for(const tx of torches){
+    const px=(tx-cam)*ppm;
+    if(px<-60||px>W+60)continue;
+    g.strokeStyle='#4A351E'; g.lineWidth=7;
+    g.beginPath(); g.moveTo(px,150); g.lineTo(px,196); g.stroke();
+    const fl=6+Math.sin(t*9+tx)*2.5;
+    const gr=g.createRadialGradient(px,144,3,px,144,90);
+    gr.addColorStop(0,'rgba(255,138,61,.4)'); gr.addColorStop(1,'rgba(255,138,61,0)');
+    g.fillStyle=gr; g.beginPath(); g.arc(px,144,90,0,7); g.fill();
+    g.fillStyle='#FF8A3D'; g.beginPath();
+    g.ellipse(px,142,7,fl+6,0,0,7); g.fill();
+    g.fillStyle='#FFC53D'; g.beginPath(); g.ellipse(px,146,4,fl,0,0,7); g.fill();
+  }
+  // 床
+  g.fillStyle='#3A2C1A'; g.fillRect(0,430,W,H-430);
+  g.fillStyle='#2C2114';
+  for(let i=0;i<18;i++){const px=((i*120-cam*ppm)%2160+2160)%2160-100; g.fillRect(px,430,60,H-430);}
+  g.fillStyle='rgba(0,0,0,.35)'; g.fillRect(0,430,W,8);
+
+  // セグメントごとの障害物
+  for(let i=0;i<S.segs.length;i++){
+    const s=S.segs[i], sx=segStartX(i);
+    if(s.type==='rock' && !(i<S.si)){
+      const px=(sx+1.0-cam)*ppm;
+      if(px>-120&&px<W+120) drawRock(px, s);
+    }
+    if(s.type==='gap'){
+      const px=(sx+0.6-cam)*ppm;
+      const wpx=1.6*ppm;
+      if(px>-150&&px<W+150){
+        // 谷
+        g.fillStyle='#0A0704'; g.fillRect(px,430,wpx,H-430);
+        g.strokeStyle='#4A351E'; g.lineWidth=3;
+        g.strokeRect(px,430,wpx,H-430);
+        if(i>=S.si){
+          // パワーゲージ（ジャンプ回数）
+          g.fillStyle='rgba(255,197,61,.9)'; g.font='900 15px "Zen Kaku Gothic New"';
+          g.textAlign='center';
+          g.fillText('必要ジャンプ '+s.done+'/'+s.need, px+wpx/2, 420);
+          g.textAlign='left';
+        }
+      }
+    }
+    if(s.type==='goal'){
+      const px=(segStartX(i)+1.2-cam)*ppm;
+      if(px>-120&&px<W+120) drawChest(px,t);
+    }
+  }
+  // パーティクル
+  for(const p of S.fxParticles){
+    p.life-=dt; p.vy+=600*dt;
+    p.x+=p.vx*dt; p.y+=p.vy*dt;
+  }
+  S.fxParticles=S.fxParticles.filter(p=>p.life>0);
+  const rockScreen=320; // 岩の標準画面位置（キャラの1m先）
+  for(const p of S.fxParticles){
+    g.fillStyle=`rgba(120,95,60,${Math.min(1,p.life)})`;
+    g.fillRect(rockScreen+p.x, 400+p.y, p.r, p.r);
+  }
+  // キャラクター
+  drawHero((S.char.x-cam)*ppm, t, dt);
+  // HUD
+  $('#hTime').textContent=S.t.toFixed(1);
+  $('#hReps').textContent=String(S.reps.step+S.reps.squat+S.reps.jump);
+}
+function drawRock(px, s){
+  const dmg=s.done/s.need;
+  g.fillStyle='#5A4630';
+  g.beginPath();
+  g.moveTo(px-52,430); g.quadraticCurveTo(px-60,340,px-10,326);
+  g.quadraticCurveTo(px+52,332,px+56,430); g.closePath(); g.fill();
+  g.fillStyle='#6B563C';
+  g.beginPath(); g.arc(px-8,368,26,0,7); g.fill();
+  // ひび
+  g.strokeStyle='rgba(20,12,6,.9)'; g.lineWidth=3;
+  const cracks=Math.floor(dmg*5);
+  for(let c=0;c<cracks;c++){
+    g.beginPath();
+    g.moveTo(px-30+c*15, 340+c*8);
+    g.lineTo(px-18+c*15, 366+c*10);
+    g.lineTo(px-28+c*15, 396+c*6);
+    g.stroke();
+  }
+}
+function drawChest(px,t){
+  const bob=Math.sin(t*3)*3;
+  g.fillStyle='#7A4E22'; g.fillRect(px-34,392+bob,68,38);
+  g.fillStyle='#9A6B33'; g.beginPath();
+  g.moveTo(px-34,392+bob); g.quadraticCurveTo(px,362+bob,px+34,392+bob); g.closePath(); g.fill();
+  g.fillStyle='#FFC53D'; g.fillRect(px-5,392+bob,10,20);
+  const gr=g.createRadialGradient(px,390+bob,5,px,390+bob,80);
+  gr.addColorStop(0,'rgba(255,197,61,.35)'); gr.addColorStop(1,'rgba(255,197,61,0)');
+  g.fillStyle=gr; g.beginPath(); g.arc(px,390+bob,80,0,7); g.fill();
+}
+function drawHero(px,t,dt){
+  if(S.char.hop>0)S.char.hop-=dt;
+  if(S.char.crouch>0)S.char.crouch-=dt;
+  if(S.char.vault>0)S.char.vault-=dt;
+  let py=430, lean=0.06, freeze=null, ph=S.char.walkPh;
+  if(S.char.hop>0){ py-=40*Math.sin((0.5-S.char.hop)/0.5*Math.PI); freeze=1.0; lean=0.2; }
+  if(S.char.vault>0){ const k=1-S.char.vault; py-=70*Math.sin(k*Math.PI); freeze=1.0; lean=0.3; }
+  if(S.char.crouch>0){ freeze=0.15; }
+  // 影
+  g.fillStyle='rgba(0,0,0,.4)';
+  g.beginPath(); g.ellipse(px,434,26,6,0,0,7); g.fill();
+  g.save(); g.translate(px,py+(S.char.crouch>0?10:0)); if(lean)g.rotate(lean);
+  const HIP={x:0,y:-34},SH={x:2,y:-56},LT=17,LS2=17,LU=11,LF=10;
+  const run=freeze==null;
+  function leg(off,shoe,col){
+    let tA,kB;
+    if(run){tA=0.55*Math.sin(ph+off);kB=0.4+0.7*Math.max(0,Math.sin(ph+off+1.25));}
+    else{tA=freeze*(off===0?1:-1)*0.8;kB=S.char.crouch>0?1.3:0.3;}
+    const kx=HIP.x+LT*Math.sin(tA),ky=HIP.y+LT*Math.cos(tA);
+    const sA=tA-kB;
+    const fx2=kx+LS2*Math.sin(sA),fy2=ky+LS2*Math.cos(sA);
+    g.strokeStyle=col;g.lineWidth=8.5;g.lineCap='round';
+    g.beginPath();g.moveTo(HIP.x,HIP.y);g.lineTo(kx,ky);g.lineTo(fx2,fy2);g.stroke();
+    g.fillStyle=shoe;g.save();g.translate(fx2,fy2);g.rotate(Math.max(-.5,Math.min(.5,sA)));
+    g.fillRect(-3,-2,13,5);g.restore();
+  }
+  function arm(off,col){
+    const aA=run?-0.55*Math.sin(ph+off):0.3*(off===0?1:-1);
+    const ex=SH.x+LU*Math.sin(aA),ey=SH.y+LU*Math.cos(aA);
+    const hA=aA+1.7;
+    const hx2=ex+LF*Math.sin(hA),hy2=ey+LF*Math.cos(hA);
+    g.strokeStyle=col;g.lineWidth=6.5;g.lineCap='round';
+    g.beginPath();g.moveTo(SH.x,SH.y);g.lineTo(ex,ey);g.lineTo(hx2,hy2);g.stroke();
+  }
+  leg(Math.PI,'#C79A2E','#20304F');
+  arm(Math.PI,'#D8B08C');
+  g.strokeStyle='#F5F1E8';g.lineWidth=13;
+  g.beginPath();g.moveTo(SH.x-1,SH.y-3);g.lineTo(HIP.x+2,HIP.y+2);g.stroke();
+  g.fillStyle='#E5533C';g.fillRect(-6,-54,13,15);
+  g.fillStyle='#F0CDA8';g.beginPath();g.arc(7,-70,9.5,0,7);g.fill();
+  g.fillStyle='#3A2A1A';g.beginPath();g.arc(5,-73,9,Math.PI*0.95,Math.PI*1.95);g.fill();
+  // ヘッドランプ
+  g.fillStyle='#FFC53D';g.fillRect(9,-78,8,6);
+  const lg=g.createLinearGradient(14,-74,120,-40);
+  lg.addColorStop(0,'rgba(255,240,180,.28)');lg.addColorStop(1,'rgba(255,240,180,0)');
+  g.fillStyle=lg;g.beginPath();g.moveTo(14,-74);g.lineTo(150,-104);g.lineTo(150,-14);g.closePath();g.fill();
+  leg(0,'#FFC53D','#2B3F66');
+  arm(0,'#F0CDA8');
+  g.restore();
+}
+
+/* ---------------- メインループ ---------------- */
+function loop(now){
+  const dt=Math.min(0.05,(now-lastT)/1000);lastT=now;
+  const t=now/1000;
+  if(S.scene==='play'){ S.t+=dt; }
+  drawDungeon(t,dt);
+  // カメラ喪失警告
+  const st=$('#camStatus');
+  if(S.mode==='camera' && S.scene==='play'){
+    if(!POSE.visible){
+      st.textContent='全身が見えません — 頭から足首まで映る位置へ'; st.classList.add('warn');
+    } else {
+      st.textContent='検出中：指示された運動をしよう'; st.classList.remove('warn');
+    }
+  }
+  requestAnimationFrame(loop);
+}
+screenMenu();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
