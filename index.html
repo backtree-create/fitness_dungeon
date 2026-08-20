@@ -124,6 +124,11 @@ table.res td:last-child{text-align:right;font-family:'DotGothic16',monospace;col
   font-family:'DotGothic16',monospace;font-size:clamp(22px,5vmin,40px);color:var(--amber)}
 #err{color:var(--red);font-weight:700;font-size:clamp(11px,2.1vmin,15px);line-height:1.8;margin-top:.6em}
 
+#homeBtn{position:fixed;left:10px;top:10px;z-index:60;
+  font-family:'DotGothic16',monospace;font-size:clamp(11px,2.2vmin,15px);
+  background:rgba(10,7,3,.9);color:var(--amber);border:3px solid #4a351e;
+  border-radius:4px;padding:.35em .9em;cursor:pointer;letter-spacing:.06em}
+#homeBtn:active{transform:translateY(2px)}
 #rotateHint{position:fixed;inset:0;background:#050302;z-index:99;display:none;
   align-items:center;justify-content:center;text-align:center;font-weight:900;
   font-size:clamp(16px,4.5vw,24px);line-height:2;padding:8%}
@@ -165,8 +170,11 @@ table.res td:last-child{text-align:right;font-family:'DotGothic16',monospace;col
   <div id="ovl"></div>
  </div>
 </div>
+<button id="homeBtn" type="button" hidden>&#8962; まなびの基板</button>
 <div id="rotateHint">画面を横向きにしてください<br><span style="font-weight:700;font-size:.7em;color:#C9BFA8">カメラとダンジョンを並べて表示します</span></div>
 
+<script src="https://backtree-create.github.io/ManabiBox/config.js"></script>
+<script src="https://backtree-create.github.io/ManabiBox/hub-progress.js"></script>
 <script type="module">
 "use strict";
 /* =========================================================
@@ -219,6 +227,31 @@ const SFX={
   kill(){tone(260,.3,'square',.15,-160);noise(.25,.3)},
   boss(){tone(98,.7,'sawtooth',.2);tone(103,.7,'sawtooth',.15);tone(196,.5,'square',.12,0,.25)},
 };
+
+/* ---------------- まなびの基板 連携 ---------------- */
+const HUB={key:'fitness-dungeon', total:8, store:'manabi-fitness-dungeon'};
+function hubLoad(){ try{ return JSON.parse(localStorage.getItem(HUB.store)||'{}'); }catch(e){ return {}; } }
+function hubSaveLocal(o){ try{ localStorage.setItem(HUB.store, JSON.stringify(o)); }catch(e){} }
+function hubReport(stage, rank, score){
+  const rec=hubLoad();
+  const stages=rec.stages||{};
+  stages[stage]=rank;
+  const done=Object.keys(stages).length;
+  const best=Math.round(done/HUB.total*1000);
+  hubSaveLocal({done,best,stages,topScore:Math.max(rec.topScore||0,score)});
+  if(window.LearnHub && typeof LearnHub.report==='function'){
+    try{ LearnHub.report({app:HUB.key, done, total:HUB.total, best,
+      note:`${stage}面 ランク${rank}`}); }catch(e){}
+  }
+}
+(function(){
+  const btn=document.getElementById('homeBtn');
+  const cfg=window.MANABI_CONFIG||{};
+  if(cfg.backLink===false) return;
+  if(!window.LearnHub && !cfg.hubUrl) return;
+  btn.hidden=false;
+  btn.onclick=()=>{ location.href=cfg.hubUrl||'https://backtree-create.github.io/ManabiBox/'; };
+})();
 
 /* ---------------- 8面ステージ定義 ---------------- */
 const ENEMY_NAMES={slime:'スライム',pslime:'ポイズンスライム',bat:'ドクロコウモリ',fbat:'ヒバナコウモリ',
@@ -927,6 +960,7 @@ function finishRun(){
   addScore(S.hearts*150,null);
   $('#task').style.display='none';$('#practiceBar').style.display='none';$('#streak').style.display='none';
   const[rk,msg]=rankOf(S.score,S.stage);
+  hubReport(S.stage, rk, S.score);
   const table=`<table class="res">
        <tr><td>クリアタイム</td><td>${S.t.toFixed(1)} 秒</td></tr>
        <tr><td>もも上げ足踏み（最大テンポ連続 ${S.maxStreak}）</td><td>${S.reps.step} 歩</td></tr>
