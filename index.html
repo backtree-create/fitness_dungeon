@@ -22,6 +22,18 @@ html,body{height:100%;background:#050302;overflow:hidden;
 #stage{position:relative;width:min(100vw,177.7vh,177.7svh);aspect-ratio:16/9;max-height:100svh;
   background:#050302;overflow:hidden;box-shadow:0 0 60px rgba(0,0,0,.8);display:flex}
 
+#stage.vs{flex-direction:column}
+#stage.vs #camPane{width:100%;height:27%;border-right:none;border-bottom:3px solid var(--board-line)}
+#stage.vs #gamePane{width:100%}
+#vsHud{position:absolute;top:1.5%;left:1.5%;right:1.5%;z-index:5;display:none;
+  justify-content:space-between;gap:8px}
+.vsBoard{background:rgba(10,7,3,.9);border:3px solid #4a351e;border-radius:4px;
+  padding:.25em .9em;text-align:center;min-width:26%}
+.vsBoard .who{font-family:'DotGothic16',monospace;font-size:clamp(9px,1.6vmin,13px);letter-spacing:.15em}
+.vsBoard .sc{font-family:'DotGothic16',monospace;font-size:clamp(15px,3.2vmin,28px);line-height:1.1;
+  text-shadow:2px 2px 0 #140c04}
+#vsP1box{border-color:#8a6a22}#vsP1box .who,#vsP1box .sc{color:#FFC53D}
+#vsP2box{border-color:#2f7a4a}#vsP2box .who,#vsP2box .sc{color:#5AD38A}
 #camPane{position:relative;width:30%;height:100%;background:#080503;border-right:2px solid var(--board-line);overflow:hidden}
 #cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);filter:saturate(.9) contrast(1.05)}
 #camCv{position:absolute;inset:0;width:100%;height:100%}
@@ -149,6 +161,11 @@ table.res td:last-child{text-align:right;font-family:'DotGothic16',monospace;col
   <div id="gamePane">
     <canvas id="glv"></canvas>
     <canvas id="ov2"></canvas>
+    <div id="vsHud">
+      <div class="vsBoard" id="vsP1box"><div class="who">P1（左）</div><div class="sc" id="vsP1">0</div></div>
+      <div class="miniBoard"><div class="lbl">TIME</div><div class="val" id="hTime2">0.0</div></div>
+      <div class="vsBoard" id="vsP2box"><div class="who">P2（右）</div><div class="sc" id="vsP2">0</div></div>
+    </div>
     <div id="topHud">
       <div class="miniBoard" id="hearts"></div>
       <div class="miniBoard"><div class="lbl">SCORE</div><div class="val" id="hScore">0</div></div>
@@ -386,34 +403,49 @@ function buildStage(n){
 }
 
 /* ---------------- ゲーム状態 ---------------- */
+function mkPlayer(){
+  return {score:0,hearts:3,streak:0,lastStepT:-9,maxStreak:0,dodges:0,miss:0,
+    reps:{step:0,squat:0,jump:0,jack:0},
+    char:{hop:0,attack:0,vault:0,walkPh:0}, lastJump:-9, held:0};
+}
 const S={
-  mode:null, scene:'menu', stage:1, goal:58,
+  mode:null, scene:'menu', stage:1, goal:58, np:1,
   t:0, dist:0, v:0,
-  hearts:3, score:0, streak:0, lastStepT:-9,
-  reps:{step:0,squat:0,jump:0}, dodges:0, maxStreak:0,
+  p:[mkPlayer(),mkPlayer()],
   course:[], enc:null,
-  char:{hop:0,attack:0,vault:0,walkPh:0},
   shake:0, redFlash:0, popups:[], slash:null,
   countdown:0,
 };
+/* 1人用のコードがそのまま動くよう、旧フィールド名をP1へ橋渡し */
+for(const k of ['score','hearts','streak','lastStepT','maxStreak','dodges','reps','char']){
+  Object.defineProperty(S,k,{
+    get(){return S.p[0][k];},
+    set(v){S.p[0][k]=v;},
+  });
+}
 let lastT=performance.now();
 let lastJumpAny=-9;
 
 /* ---------------- 姿勢検出 ---------------- */
+function mkPose(){
+  return {sm:{}, base:null, calib:{on:false,frames:[]},
+    squatDown:false, jumpUp:false, lastJumpT:0,
+    kneeUp:{L:false,R:false}, lastStepT:0, jackOpen:false, lastJackT:0,
+    visible:false, liveDepth:0, liveRise:0, liveSide:0, liveLift:0};
+}
 const POSE={
   landmarker:null, video:$('#cam'), running:false,
-  sm:{}, base:null,
-  calib:{on:false, frames:[], need:70},
-  squatDown:false, jumpUp:false, lastJumpT:0,
-  kneeUp:{L:false,R:false}, lastStepT:0,
-  jackOpen:false, lastJackT:0,
-  visible:false, liveDepth:0, liveRise:0, liveSide:0, liveLift:0,
+  P:[mkPose(),mkPose()], calibNeed:70, calibOn:false,
+  /* 立ち位置を覚えて照合するための枠。homeXはキャリブ時の腰の横位置 */
+  slots:[{homeX:null,lastX:null,lost:0,amb:false},{homeX:null,lastX:null,lost:0,amb:false}],
+  gapWarn:false,
 };
-/* 練習モードの疑似入力（押しっぱなし系） */
+const TRK={MAXD:0.17, MARGIN:0.05, MINGAP:0.12, EMA:0.06};
+/* 練習モードの疑似入力（P1のみ・押しっぱなし系） */
 const PR={side:0,sideT:0,squat:false,foot:false};
-function curSide(){return S.mode==='camera'?POSE.liveSide:PR.side;}
-function curDuck(){return S.mode==='camera'?POSE.liveDepth:(PR.squat?0.2:0);}
-function curLift(){return S.mode==='camera'?POSE.liveLift:(PR.foot?0.2:0);}
+function curSide(pi){pi=pi||0;return S.mode==='camera'?POSE.P[pi].liveSide:(pi===0?PR.side:0);}
+function curDuck(pi){pi=pi||0;return S.mode==='camera'?POSE.P[pi].liveDepth:(pi===0&&PR.squat?0.2:0);}
+function curLift(pi){pi=pi||0;return S.mode==='camera'?POSE.P[pi].liveLift:(pi===0&&PR.foot?0.2:0);}
 const LMK={NOSE:0,LW:15,RW:16,LS:11,RS:12,LH:23,RH:24,LK:25,RK:26,LA:27,RA:28};
 const NEED=[LMK.LS,LMK.RS,LMK.LH,LMK.RH,LMK.LK,LMK.RK,LMK.LA,LMK.RA];
 const SOFT=[LMK.NOSE,LMK.LW,LMK.RW]; // 見えないことも許す部位
@@ -431,7 +463,7 @@ async function initPose(){
   const files=await vision.FilesetResolver.forVisionTasks(url+'/wasm');
   const opts=d=>({baseOptions:{
       modelAssetPath:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
-      delegate:d},runningMode:'VIDEO',numPoses:1});
+      delegate:d},runningMode:'VIDEO',numPoses:2});
   try{POSE.landmarker=await vision.PoseLandmarker.createFromOptions(files,opts('GPU'));}
   catch(e){POSE.landmarker=await vision.PoseLandmarker.createFromOptions(files,opts('CPU'));}
   stat.textContent='カメラを起動中…';
@@ -452,171 +484,310 @@ function poseLoop(){
   lastVideoT=v.currentTime;
   let res;
   try{res=POSE.landmarker.detectForVideo(v,performance.now());}catch(e){return;}
-  const lm=res.landmarks&&res.landmarks[0];
-  drawCamSkeleton(lm);
-  if(!lm){POSE.visible=false;POSE.liveDepth*=0.9;POSE.liveRise*=0.9;return;}
+  const list=(res.landmarks||[]).slice(0,2);
+  const np=S.np||1;
+  const assigned=assignPoses(list,np);
+  drawCamSkeleton(assigned,np);
+  for(let pi=0;pi<np;pi++) processPose(assigned[pi],pi);
+  if(POSE.calibOn) calibTick(np);
+}
+function hipXof(lm){ return (lm[LMK.LH].x+lm[LMK.RH].x)/2; }
+/* 検出された骨格を、記憶した立ち位置に照合してP1/P2へ割り当てる。
+   確信が持てないものは捨てる（取り違えるより「見えていない」ほうが安全） */
+function assignPoses(list,np){
+  const out=[null,null];
+  const cand=list.filter(Boolean).map(lm=>({lm,x:hipXof(lm)}));
+  if(np===1){ out[0]=cand.length?cand[0].lm:null; return out; }
+  const anchor=pi=>{
+    const sl=POSE.slots[pi];
+    if(sl.lastX!=null)return sl.lastX;
+    if(sl.homeX!=null)return sl.homeX;
+    return null;
+  };
+  const a0=anchor(0), a1=anchor(1);
+  // まだ立ち位置を覚えていない（キャリブ前）→ 画面左＝P1として初期化
+  if(a0==null||a1==null){
+    cand.sort((p,q)=>q.x-p.x);          // 生座標が大きいほうが画面左（映像は左右反転）
+    for(let i=0;i<Math.min(2,cand.length);i++){
+      out[i]=cand[i].lm;
+      POSE.slots[i].lastX=cand[i].x;
+    }
+    POSE.slots[0].amb=POSE.slots[1].amb=false;
+    return out;
+  }
+  if(cand.length>=2){
+    // 2通りの組み合わせのうち、ずれの合計が小さいほうを採用
+    const costA=Math.abs(cand[0].x-a0)+Math.abs(cand[1].x-a1);
+    const costB=Math.abs(cand[1].x-a0)+Math.abs(cand[0].x-a1);
+    const pair = costA<=costB ? [cand[0],cand[1]] : [cand[1],cand[0]];
+    for(let i=0;i<2;i++){
+      const d=Math.abs(pair[i].x-anchor(i));
+      if(d<=TRK.MAXD*1.6){ out[i]=pair[i].lm; POSE.slots[i].amb=false; }
+      else { POSE.slots[i].amb=true; }
+    }
+  }
+  else if(cand.length===1){
+    // 1人しか映っていない：どちらの立ち位置に近いかで判定。
+    // 差がわずかなら「どちらか判別できない」として採点を止める
+    const c=cand[0];
+    const d0=Math.abs(c.x-a0), d1=Math.abs(c.x-a1);
+    const near=d0<=d1?0:1, far=1-near;
+    const sure=(Math.abs(d0-d1)>=TRK.MARGIN)&&(Math.min(d0,d1)<=TRK.MAXD);
+    if(sure){ out[near]=c.lm; POSE.slots[near].amb=false; }
+    else { POSE.slots[0].amb=true; POSE.slots[1].amb=true; }
+    POSE.slots[far].amb=POSE.slots[far].amb||false;
+  }
+  // 立ち位置の記憶を更新（ゆっくり追従。見失った枠は動かさない）
+  for(let i=0;i<2;i++){
+    const sl=POSE.slots[i];
+    if(out[i]){
+      const x=hipXof(out[i]);
+      sl.lastX = sl.lastX==null ? x : sl.lastX+(x-sl.lastX)*TRK.EMA;
+      sl.lost=0;
+    } else {
+      sl.lost++;
+      // 長く見失ったら記憶をキャリブ位置へ戻す（別人が入り込んだときの復帰用）
+      if(sl.lost>90&&sl.homeX!=null)sl.lastX=sl.homeX;
+    }
+  }
+  POSE.gapWarn = Math.abs((POSE.slots[0].lastX??0)-(POSE.slots[1].lastX??1))<TRK.MINGAP;
+  return out;
+}
+function processPose(lm,pi){
+  const PS=POSE.P[pi];
+  if(!lm){PS.visible=false;PS.liveDepth*=0.9;PS.liveRise*=0.9;return;}
   let vis=true;
   for(const i of NEED){if(!lm[i]||(lm[i].visibility!=null&&lm[i].visibility<0.4))vis=false;}
-  POSE.visible=vis;
-  if(!vis){POSE.liveDepth*=0.9;POSE.liveRise*=0.9;return;}
+  PS.visible=vis;
+  if(!vis){PS.liveDepth*=0.9;PS.liveRise*=0.9;return;}
   const a=0.45;
   for(const i of [...NEED,...SOFT]){
     if(!lm[i]||((lm[i].visibility??1)<0.3))continue;
-    if(!POSE.sm[i])POSE.sm[i]={x:lm[i].x,y:lm[i].y};
-    POSE.sm[i].x+=a*(lm[i].x-POSE.sm[i].x);
-    POSE.sm[i].y+=a*(lm[i].y-POSE.sm[i].y);
+    if(!PS.sm[i])PS.sm[i]={x:lm[i].x,y:lm[i].y};
+    PS.sm[i].x+=a*(lm[i].x-PS.sm[i].x);
+    PS.sm[i].y+=a*(lm[i].y-PS.sm[i].y);
   }
-  const p=POSE.sm;
+  const p=PS.sm;
   const hipY=(p[LMK.LH].y+p[LMK.RH].y)/2;
   const shY=(p[LMK.LS].y+p[LMK.RS].y)/2;
   const ankY=(p[LMK.LA].y+p[LMK.RA].y)/2;
-  if(POSE.calib.on){
-    POSE.calib.frames.push({hipY,hipX:(p[LMK.LH].x+p[LMK.RH].x)/2,
+  if(PS.calib.on){
+    PS.calib.frames.push({hipY,hipX:(p[LMK.LH].x+p[LMK.RH].x)/2,
       kneeL:p[LMK.LK].y,kneeR:p[LMK.RK].y,bodyH:ankY-shY,
       spread:Math.abs(p[LMK.LA].x-p[LMK.RA].x)});
-    const pct=Math.min(100,Math.round(POSE.calib.frames.length/POSE.calib.need*100));
-    updCalib(pct);
-    if(POSE.calib.frames.length>=POSE.calib.need){
-      const f=POSE.calib.frames,n=f.length,avg=k=>f.reduce((s,o)=>s+o[k],0)/n;
-      POSE.base={hipY:avg('hipY'),hipX:avg('hipX'),kneeL:avg('kneeL'),kneeR:avg('kneeR'),
+    if(PS.calib.frames.length>=POSE.calibNeed){
+      const f=PS.calib.frames,n=f.length,avg=k=>f.reduce((s2,o)=>s2+o[k],0)/n;
+      PS.base={hipY:avg('hipY'),hipX:avg('hipX'),kneeL:avg('kneeL'),kneeR:avg('kneeR'),
         bodyH:Math.max(.2,avg('bodyH')),spread:avg('spread')};
-      POSE.calib.on=false;calibDone();
+      POSE.slots[pi].homeX=PS.base.hipX;
+      POSE.slots[pi].lastX=PS.base.hipX;
+      PS.calib.on=false;
     }
     return;
   }
-  if(!POSE.base)return;
-  const b=POSE.base,bh=b.bodyH,now=performance.now()/1000;
+  if(!PS.base)return;
+  const b=PS.base,bh=b.bodyH,now=performance.now()/1000;
   const depth=(hipY-b.hipY)/bh;
   const rise=(b.hipY-hipY)/bh;
-  POSE.liveDepth=Math.max(0,depth);
-  POSE.liveRise=Math.max(0,rise);
+  PS.liveDepth=Math.max(0,depth);
+  PS.liveRise=Math.max(0,rise);
   if(S.scene!=='play')return;
-  const squatActive=S.enc&&(S.enc.kind==='rock'||S.enc.kind==='battle');
-  $('#depthMeter').style.display=squatActive?'block':'none';
-  if(squatActive)$('#depthFill').style.height=Math.min(100,Math.max(0,depth/0.22*100))+'%';
-  if(!POSE.squatDown&&depth>0.18){POSE.squatDown=true;}
-  if(POSE.squatDown&&depth<0.07){POSE.squatDown=false;onRep('squat');}
-  if(!POSE.jumpUp&&rise>0.09&&now-POSE.lastJumpT>0.5){POSE.jumpUp=true;}
-  if(POSE.jumpUp&&rise<0.03){POSE.jumpUp=false;POSE.lastJumpT=now;onRep('jump');}
+  if(pi===0){
+    const squatActive=S.enc&&(S.enc.kind==='rock'||S.enc.kind==='battle');
+    $('#depthMeter').style.display=(squatActive&&S.np===1)?'block':'none';
+    if(squatActive&&S.np===1)$('#depthFill').style.height=Math.min(100,Math.max(0,depth/0.22*100))+'%';
+  }
+  if(!PS.squatDown&&depth>0.18){PS.squatDown=true;}
+  if(PS.squatDown&&depth<0.07){PS.squatDown=false;onRep('squat',pi);}
+  if(!PS.jumpUp&&rise>0.09&&now-PS.lastJumpT>0.5){PS.jumpUp=true;}
+  if(PS.jumpUp&&rise<0.03){PS.jumpUp=false;PS.lastJumpT=now;onRep('jump',pi);}
   const liftL=(b.kneeL-p[LMK.LK].y)/bh,liftR=(b.kneeR-p[LMK.RK].y)/bh;
-  stepKnee('L',liftL,now);stepKnee('R',liftR,now);
-  POSE.liveLift=Math.max(liftL,liftR);
-  // サイドステップ：腰の左右移動（正＝プレイヤーの右）
+  stepKnee(PS,'L',liftL,now,pi);stepKnee(PS,'R',liftR,now,pi);
+  PS.liveLift=Math.max(liftL,liftR);
   const hipX2=(p[LMK.LH].x+p[LMK.RH].x)/2;
-  POSE.liveSide=(b.hipX-hipX2)/bh*1.7;
-  // ジャンピングジャック：足を開き、両手首が鼻より上
-  const wL=POSE.sm[LMK.LW],wR=POSE.sm[LMK.RW],nz=POSE.sm[LMK.NOSE];
+  PS.liveSide=(b.hipX-hipX2)/bh*1.7;
+  const wL=PS.sm[LMK.LW],wR=PS.sm[LMK.RW],nz=PS.sm[LMK.NOSE];
   if(wL&&wR&&nz){
     const spread=Math.abs(p[LMK.LA].x-p[LMK.RA].x);
     const wide=(spread-b.spread)/bh>0.28;
     const armsUp=wL.y<nz.y&&wR.y<nz.y;
-    if(!POSE.jackOpen&&wide&&armsUp&&now-POSE.lastJackT>0.45){
-      POSE.jackOpen=true;POSE.lastJackT=now;onRep('jack');
+    if(!PS.jackOpen&&wide&&armsUp&&now-PS.lastJackT>0.45){
+      PS.jackOpen=true;PS.lastJackT=now;onRep('jack',pi);
     }
-    if(POSE.jackOpen&&!wide&&!armsUp)POSE.jackOpen=false;
+    if(PS.jackOpen&&!wide&&!armsUp)PS.jackOpen=false;
   }
 }
-function stepKnee(side,lift,now){
-  if(!POSE.kneeUp[side]&&lift>0.16&&now-POSE.lastStepT>0.16){
-    POSE.kneeUp[side]=true;POSE.lastStepT=now;onRep('step');
+function stepKnee(PS,side,lift,now,pi){
+  if(!PS.kneeUp[side]&&lift>0.16&&now-PS.lastStepT>0.16){
+    PS.kneeUp[side]=true;PS.lastStepT=now;onRep('step',pi);
   }
-  if(POSE.kneeUp[side]&&lift<0.07)POSE.kneeUp[side]=false;
+  if(PS.kneeUp[side]&&lift<0.07)PS.kneeUp[side]=false;
+}
+function calibTick(np){
+  let allDone=true, minPct=100, allVisible=true;
+  for(let i=0;i<np;i++){
+    const PS=POSE.P[i];
+    if(!PS.visible)allVisible=false;
+    if(!PS.visible&&PS.calib.on)PS.calib.frames.length=0;
+    const pct=Math.min(100,Math.round(PS.calib.frames.length/POSE.calibNeed*100));
+    minPct=Math.min(minPct,PS.base?100:pct);
+    if(!PS.base)allDone=false;
+  }
+  // 2人が近すぎると取り違えの原因になるので、離れ直してもらう
+  POSE.tooClose=false;
+  if(np>1){
+    const x0=POSE.slots[0].lastX, x1=POSE.slots[1].lastX;
+    if(x0!=null&&x1!=null&&Math.abs(x0-x1)<TRK.MINGAP*1.4){
+      POSE.tooClose=true;
+      for(let i=0;i<np;i++){POSE.P[i].calib.frames.length=0;}
+      allDone=false;minPct=0;
+    }
+  }
+  updCalib((allVisible&&!POSE.tooClose)?minPct:0);
+  if(allDone){POSE.calibOn=false;calibDone();}
 }
 const BONES=[[11,12],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28],[11,13],[13,15],[12,14],[14,16]];
-function drawCamSkeleton(lm){
+const PCOL=['#FFC53D','#5AD38A'];
+function drawCamSkeleton(list,np){
   const r=$('#camPane').getBoundingClientRect();
   cg.clearRect(0,0,r.width,r.height);
-  if(!lm)return;
+  if(!list||!list.length)return;
   const v=POSE.video;
   const sc=Math.max(r.width/v.videoWidth,r.height/v.videoHeight);
   const dw=v.videoWidth*sc,dh=v.videoHeight*sc;
   const ox=(r.width-dw)/2,oy=(r.height-dh)/2;
   const X=p=>r.width-(ox+p.x*dw),Y=p=>oy+p.y*dh;
-  cg.strokeStyle='rgba(90,211,138,.9)';cg.lineWidth=3;cg.lineCap='round';
-  for(const[a2,b2]of BONES){
-    if(!lm[a2]||!lm[b2])continue;
-    cg.beginPath();cg.moveTo(X(lm[a2]),Y(lm[a2]));cg.lineTo(X(lm[b2]),Y(lm[b2]));cg.stroke();
+  if(np>1){
+    for(let i=0;i<2;i++){
+      const hx=POSE.slots[i].homeX;
+      if(hx==null)continue;
+      const lx=r.width-(ox+hx*dw);
+      cg.strokeStyle=PCOL[i];cg.globalAlpha=.28;cg.lineWidth=2;
+      cg.setLineDash([6,6]);
+      cg.beginPath();cg.moveTo(lx,0);cg.lineTo(lx,r.height);cg.stroke();
+      cg.setLineDash([]);cg.globalAlpha=1;
+    }
   }
-  cg.fillStyle='#FFC53D';
-  for(const i of NEED){if(lm[i]){cg.beginPath();cg.arc(X(lm[i]),Y(lm[i]),4,0,7);cg.fill();}}
+  for(let pi=0;pi<Math.min(list.length,np);pi++){
+    const lm=list[pi];if(!lm)continue;
+    cg.strokeStyle=(np>1?PCOL[pi]:'rgba(90,211,138,.9)');
+    cg.lineWidth=3;cg.lineCap='round';
+    for(const[a2,b2]of BONES){
+      if(!lm[a2]||!lm[b2])continue;
+      cg.beginPath();cg.moveTo(X(lm[a2]),Y(lm[a2]));cg.lineTo(X(lm[b2]),Y(lm[b2]));cg.stroke();
+    }
+    cg.fillStyle=(np>1?PCOL[pi]:'#FFC53D');
+    for(const i of NEED){if(lm[i]){cg.beginPath();cg.arc(X(lm[i]),Y(lm[i]),4,0,7);cg.fill();}}
+    if(np>1&&lm[LMK.NOSE]){
+      const lx=X(lm[LMK.NOSE]),ly=Y(lm[LMK.NOSE])-26;
+      cg.fillStyle=POSE.slots[pi].amb?'#E5533C':PCOL[pi];
+      cg.fillRect(lx-16,ly-14,32,18);
+      cg.fillStyle='#140c04';cg.font='700 13px DotGothic16';cg.textAlign='center';
+      cg.fillText('P'+(pi+1),lx,ly);cg.textAlign='left';
+    }
+  }
 }
 
 /* ---------------- レップ処理 ---------------- */
-function onRep(mv){
+function onRep(mv,pi){
+  pi=pi||0;
   if(S.scene!=='play'||S.countdown>0)return;
+  if(pi>=S.np)return;
+  const P=S.p[pi];
   const now=S.t;
-  if(mv==='jump'){lastJumpAny=now;S.char.hop=0.5;}
+  if(mv==='jump'){P.lastJump=now;P.char.hop=0.5;if(pi===0)lastJumpAny=now;}
   const e=S.enc;
   if(!e){
     if(mv==='step'){
-      S.reps.step++;SFX.step();
-      S.char.walkPh+=Math.PI;
-      if(now-S.lastStepT<0.9){S.streak++;}else{S.streak=1;}
-      S.maxStreak=Math.max(S.maxStreak,S.streak);
-      S.lastStepT=now;
-      const boost=S.streak>=8?1.15:1.0;
-      S.v=Math.min(3.4,S.v+0.85*boost);
-      addScore(S.streak>=8?8:5,null);
+      P.reps.step++;SFX.step();
+      P.char.walkPh+=Math.PI;
+      if(now-P.lastStepT<0.9){P.streak++;}else{P.streak=1;}
+      P.maxStreak=Math.max(P.maxStreak,P.streak);
+      P.lastStepT=now;
+      const boost=P.streak>=8?1.15:1.0;
+      S.v=Math.min(3.4,S.v+(S.np>1?0.5:0.85)*boost);
+      addScore(P.streak>=8?8:5,null,pi);
     }
-    if(mv==='jump'){S.reps.jump++;SFX.jump();}
-    if(mv==='jack'){S.reps.jack++;addScore(6,null);}
+    if(mv==='jump'){P.reps.jump++;SFX.jump();}
+    if(mv==='jack'){P.reps.jack++;addScore(6,null,pi);}
     return;
   }
   if(e.kind==='rock'){
     if(e.hp<=0)return;
     if(mv==='squat'){
-      S.reps.squat++;e.hp--;SFX.hit();
-      S.char.attack=0.32;S.shake=0.25;addScore(30,'+30');
+      P.reps.squat++;e.hp--;SFX.hit();
+      P.char.attack=0.32;S.shake=0.25;addScore(30,'+30',pi);
       G3.rockDamage(e);
-      if(e.hp<=0)rockCleared(e,true);
+      if(e.hp<=0)rockCleared(e,pi);
     }
   }
   else if(e.kind==='battle'){
     if(e.state==='dead')return;
     if(mv==='squat'){
-      S.reps.squat++;SFX.swing();
-      S.char.attack=0.32;e.flinch=0.3;e.hp--;
-      addScore(40,'+40');
-      if(e.hp<=0){e.state='dead';e.deadT=0;SFX.kill();addScore(e.boss?250:150,e.boss?'+250':'+150');}
+      P.reps.squat++;SFX.swing();
+      P.char.attack=0.32;e.flinch=0.3;e.hp--;
+      addScore(40,'+40',pi);
+      if(e.hp<=0){e.state='dead';e.deadT=0;SFX.kill();
+        addScore(e.boss?250:150,(e.boss?'+250':'+150')+' 撃破',pi);}
     }
-    if(mv==='jump'){S.reps.jump++;}
+    if(mv==='jump'){P.reps.jump++;}
   }
   else if(e.kind==='seal'){
     if(mv==='jack'&&!e.done){
-      S.reps.jack++;e.cnt++;SFX.hit();
-      addScore(12,'+12');G3.sealDamage(e);
+      P.reps.jack++;e.cnt++;SFX.hit();
+      addScore(12,'+12',pi);G3.sealDamage(e);
       if(e.cnt>=e.need){
         e.doneAnim=true;SFX.smash();S.shake=0.5;
-        G3.sealBreak(e);addScore(120,'封印解除 +120');
+        G3.sealBreak(e);addScore(120,'封印解除 +120',pi);
         setTimeout(()=>endEncounter(e,null),450);
       }
     }
   }
   else if(e.kind==='dash'){
     if(mv==='step'&&!e.done){
-      S.reps.step++;e.cnt++;SFX.step();
-      S.char.walkPh+=Math.PI;
-      addScore(6,null);
+      P.reps.step++;e.cnt++;SFX.step();
+      P.char.walkPh+=Math.PI;
+      addScore(6,null,pi);
     }
   }
   else if(e.kind==='gap'){
     if(mv==='jump'&&e.armed&&!e.done){
-      S.reps.jump++;e.done=true;
-      S.char.vault=1.0;SFX.dodge();addScore(100,'+100');
-      setTimeout(()=>{endEncounter(e,e.pos+e.width+0.3);},550);
+      P.reps.jump++;
+      if(!e.jumped)e.jumped={};
+      if(!e.jumped[pi]){
+        e.jumped[pi]=true;
+        P.char.vault=1.0;SFX.dodge();addScore(100,'+100',pi);
+      }
+      const all=(S.np===1)||(e.jumped[0]&&e.jumped[1]);
+      if(all&&!e.done){
+        e.done=true;
+        setTimeout(()=>{endEncounter(e,e.pos+e.width+0.3);},550);
+      }
     }
+  }
+  else if(e.kind==='bridge'){
+    if(mv==='jump'){P.reps.jump++;}
   }
   flash(mv==='step'?'GO!':'OK!');
 }
-function addScore(n,popup){
-  S.score+=n;
-  if(popup)S.popups.push({txt:popup,rx:0.5,ry:0.42,life:0.9});
+function addScore(n,popup,pi){
+  pi=pi||0;
+  S.p[pi].score+=n;
+  if(popup)S.popups.push({txt:(S.np>1?'P'+(pi+1)+' ':'')+popup,
+    rx:S.np>1?(pi===0?0.3:0.7):0.5, ry:0.42, life:0.9, pi});
 }
-function loseHeart(reason){
-  S.hearts--;S.redFlash=0.55;SFX.hurt();S.shake=0.5;
-  S.popups.push({txt:reason,rx:0.5,ry:0.36,life:1.2,red:true});
-  drawHearts();
-  if(S.hearts<=0){gameOver();}
+function loseHeart(reason,pi){
+  pi=pi||0;
+  const P=S.p[pi];
+  P.miss++;S.redFlash=0.55;SFX.hurt();S.shake=0.5;
+  S.popups.push({txt:(S.np>1?'P'+(pi+1)+' ':'')+reason,
+    rx:S.np>1?(pi===0?0.3:0.7):0.5, ry:0.36, life:1.2, red:true, pi});
+  if(S.np>1){                       // 対戦は脱落なし。ミスは減点で決着をつける
+    P.score=Math.max(0,P.score-50);
+    return;
+  }
+  P.hearts--;drawHearts();
+  if(P.hearts<=0){gameOver();}
 }
 
 /* ---------------- エンカウント進行 ---------------- */
@@ -632,6 +803,7 @@ function enterEncounter(ev){
   if(ev.kind==='gap'){ev.armed=true;ev.timer=ev.window;SFX.warn();}
   if(ev.kind==='rock'){SFX.warn();}
   if(ev.kind==='dash'){ev.timer=ev.limit;SFX.warn();}
+  if(ev.kind==='bridge'){for(let pi=0;pi<S.np;pi++)S.p[pi].held=0;ev.limit=null;SFX.warn();}
   if(ev.kind==='seal'){SFX.warn();}
   updTask();
 }
@@ -640,9 +812,10 @@ function endEncounter(ev,newDist){
   if(newDist!=null)S.dist=newDist;
   updTask();
 }
-function rockCleared(e,byPlayer){
+function rockCleared(e,pi){
   SFX.smash();S.shake=0.6;G3.rockExplode(e);
-  if(byPlayer)addScore(Math.round(e.timer*10),'タイムボーナス +'+Math.round(e.timer*10));
+  const b=Math.round(e.timer*10);
+  if(pi!=null)addScore(b,'タイムボーナス +'+b,pi);
   setTimeout(()=>endEncounter(e,null),400);
 }
 function updateEncounter(dt){
@@ -650,7 +823,7 @@ function updateEncounter(dt){
   if(e.kind==='rock'){
     e.timer-=dt;
     if(e.timer<=0&&!e.done&&e.hp>0){
-      loseHeart('落石をくらった！');
+      for(let pi=0;pi<S.np;pi++)loseHeart('落石をくらった！',pi);
       G3.rockFall(e);S.shake=0.6;SFX.smash();
       e.hp=0;setTimeout(()=>endEncounter(e,null),500);
     }
@@ -671,13 +844,18 @@ function updateEncounter(dt){
       e.st-=dt;
       if(e.st<=0){
         e.state='strike';e.st=0.35;SFX.slash();
-        let dodged=false;
-        if(e.atkKind==='side')dodged=curSide()*e.atkDir>0.12;
-        else if(e.atkKind==='duck')dodged=curDuck()>0.13;
-        else dodged=(S.t-lastJumpAny<1.4||POSE.jumpUp||S.char.hop>0.15);
-        S.slash={t:0.35,dodged};
-        if(dodged){S.dodges++;SFX.dodge();addScore(80,'回避！ +80');}
-        else{loseHeart(e.name+'の攻撃！');}
+        let anyDodge=false;
+        for(let pi=0;pi<S.np;pi++){
+          const P=S.p[pi];
+          let dodged=false;
+          if(e.atkKind==='side')dodged=curSide(pi)*e.atkDir>0.12;
+          else if(e.atkKind==='duck')dodged=curDuck(pi)>0.13;
+          else dodged=(S.t-P.lastJump<1.4||POSE.P[pi].jumpUp||P.char.hop>0.15);
+          if(dodged){P.dodges++;anyDodge=true;addScore(80,'回避！ +80',pi);}
+          else{loseHeart(e.name+'の攻撃！',pi);}
+        }
+        if(anyDodge)SFX.dodge();
+        S.slash={t:0.35,dodged:anyDodge};
       }
     }
     else if(e.state==='strike'){
@@ -703,12 +881,21 @@ function updateEncounter(dt){
   }
   else if(e.kind==='bridge'){
     if(!e.done){
-      const bal=curLift()>0.11;
-      if(bal){e.held+=dt;e.wob=0;}
-      else if(e.held>0){e.wob=(e.wob||0)+dt;}
-      if(e.held>=e.needS){
-        e.done=true;SFX.dodge();
-        addScore(150,'バランス成功 +150');
+      e.limit=(e.limit==null? e.needS+8 : e.limit-dt);
+      let allDone=true;
+      for(let pi=0;pi<S.np;pi++){
+        const P=S.p[pi];
+        if(P.held>=e.needS)continue;
+        if(curLift(pi)>0.11)P.held+=dt;
+        if(P.held>=e.needS){SFX.dodge();addScore(150,'バランス成功 +150',pi);}
+        else allDone=false;
+      }
+      e.held=S.p[0].held;
+      if(allDone||e.limit<=0){
+        e.done=true;
+        for(let pi=0;pi<S.np;pi++){
+          if(S.p[pi].held<e.needS)loseHeart('橋でぐらついた…！',pi);
+        }
       }
     } else {
       const target=e.pos+e.width+0.4;
@@ -719,12 +906,14 @@ function updateEncounter(dt){
   else if(e.kind==='dash'){
     if(!e.done){
       e.timer-=dt;
-      if(e.cnt>=e.need){
+      const need=e.need*(S.np>1?1.7:1);
+      if(e.cnt>=need){
         e.done=true;SFX.go();
-        addScore(120+Math.round(Math.max(0,e.timer)*10),'駆け抜けた！');
+        const b=120+Math.round(Math.max(0,e.timer)*10);
+        for(let pi=0;pi<S.np;pi++)addScore(b,'駆け抜けた！',pi);
       } else if(e.timer<=0){
-        e.done=true;loseHeart('床が崩れた…！');S.shake=0.6;
-        G3.dashCrumble(e);
+        e.done=true;S.shake=0.6;G3.dashCrumble(e);
+        for(let pi=0;pi<S.np;pi++)loseHeart('床が崩れた…！',pi);
       }
     } else {
       const target=e.pos+3.4;
@@ -741,7 +930,9 @@ function updateEncounter(dt){
     if(!e.done){
       e.timer-=dt;
       if(e.timer<=0){
-        loseHeart('谷に落ちかけた…！');
+        for(let pi=0;pi<S.np;pi++){
+          if(!(e.jumped&&e.jumped[pi]))loseHeart('谷に落ちかけた…！',pi);
+        }
         e.done=true;
         setTimeout(()=>endEncounter(e,e.pos+e.width+0.3),400);
       }
@@ -755,8 +946,9 @@ const ovl=$('#ovl');
 function screenMenu(){
   S.scene='menu';
   hideHome(false);
+  S.np=1;document.getElementById('stage').classList.remove('vs');
   $('#depthMeter').style.display='none';
-  $('#task').style.display='none';$('#topHud').style.display='none';
+  $('#task').style.display='none';$('#topHud').style.display='none';$('#vsHud').style.display='none';
   $('#practiceBar').style.display='none';$('#streak').style.display='none';
   ovl.style.display='flex';
   ovl.innerHTML=`
@@ -771,26 +963,29 @@ function screenMenu(){
      <p class="sub">きみの目がカメラだ。しゃがめば視点が下がり、跳べば視界が浮く。<br>
      落石はカウントダウン、モンスターは「！」のあと本当に襲ってくる。ハート3つで挑め。</p>
      <div class="safety"><b>安全のために：</b>周囲2歩ぶんのスペース確保／すべらない床で／準備運動をしてから／息が上がったら休む・水分補給。<b>痛みを感じたらすぐ中止。</b></div>
-     <button class="btn" id="goCam">カメラでプレイ</button>
+     <button class="btn" id="goCam">1人でプレイ（カメラ）</button>
+     <button class="btn" id="goVs">2人で対戦（カメラ）</button>
      <button class="btn ghost" id="goPractice">練習モード（カメラなし）</button>
      <button class="btn ghost" id="goFull">全画面</button>
      <div id="err"></div>
      <div class="trivia"><b>保体メモ：</b>強さの違う運動を交互に行うと心拍数が上下する。これは<b>インターバルトレーニング</b>の考え方。走り＋筋トレ＋ジャンプで全身をバランスよく。</div>
    </div>`;
-  $('#goCam').onclick=async()=>{
-    ac();
+  const startCam=async(np)=>{
+    ac();S.np=np;
     if(!window.isSecureContext){$('#err').textContent='カメラはHTTPSでのみ使えます。GitHub Pages等で開くか、練習モードをどうぞ。';return;}
-    $('#goCam').disabled=true;$('#goCam').textContent='準備中…';
+    $('#goCam').disabled=true;$('#goVs').disabled=true;$('#err').textContent='準備中…';
     try{
       if(!POSE.running)await initPose();
       S.mode='camera';screenCalib();   // キャリブ完了後に面セレクトへ
     }catch(e){
       console.error(e);
-      $('#goCam').disabled=false;$('#goCam').textContent='カメラでプレイ';
+      $('#goCam').disabled=false;$('#goVs').disabled=false;
       $('#err').textContent='カメラまたはAIモデルの準備に失敗しました（'+(e.name||'error')+'）。カメラの許可・通信環境を確認するか、練習モードをどうぞ。';
     }
   };
-  $('#goPractice').onclick=()=>{ac();S.mode='practice';screenStageSelect();};
+  $('#goCam').onclick=()=>startCam(1);
+  $('#goVs').onclick=()=>startCam(2);
+  $('#goPractice').onclick=()=>{ac();S.mode='practice';S.np=1;screenStageSelect();};
   $('#goFull').onclick=()=>{const el=document.documentElement;
     if(!document.fullscreenElement){(el.requestFullscreen||el.webkitRequestFullscreen||function(){}).call(el);}
     else{(document.exitFullscreen||function(){}).call(document);}};
@@ -802,7 +997,9 @@ function screenCalib(){
    <div class="panel">
      <div class="eyebrow">CALIBRATION</div>
      <h2>基準の姿勢を覚えます</h2>
-     <p class="sub">左のカメラに<b>頭から足首まで</b>が映るように下がって、<br><b>気をつけの姿勢でじっと立ってください。</b></p>
+     <p class="sub">${S.np>1
+       ? 'カメラに<b>2人とも全身が映る</b>ように、1mほど離れて並んでください。<br>画面の<b>左がP1（黄）、右がP2（緑）</b>です。そのまま<b>気をつけの姿勢で静止</b>。'
+       : 'カメラに<b>頭から足首まで</b>が映るように下がって、<br><b>気をつけの姿勢でじっと立ってください。</b>'}</p>
      <div id="calibRing">
        <svg viewBox="0 0 100 100">
          <circle cx="50" cy="50" r="44" fill="none" stroke="#3A2A12" stroke-width="8"/>
@@ -813,14 +1010,23 @@ function screenCalib(){
      </div>
      <p class="sub" id="calibMsg">全身の検出を待っています…</p>
    </div>`;
-  POSE.calib.frames=[];POSE.calib.on=true;POSE.base=null;
+  for(let i=0;i<S.np;i++){
+    POSE.P[i].calib.frames=[];POSE.P[i].calib.on=true;POSE.P[i].base=null;
+    POSE.slots[i]={homeX:null,lastX:null,lost:0,amb:false};
+  }
+  POSE.calibOn=true;
   calibWatch();
 }
 function calibWatch(){
   if(S.scene!=='calib')return;
   const m=$('#calibMsg');
-  if(m){m.textContent=POSE.visible?'そのまま動かないで…':'全身（頭〜足首）が映るように位置を調整してください';}
-  if(!POSE.visible&&POSE.calib.on){POSE.calib.frames.length=0;updCalib(0);}
+  let allVis=true;
+  for(let i=0;i<S.np;i++) if(!POSE.P[i].visible) allVis=false;
+  if(m){
+    m.textContent = POSE.tooClose ? '2人の間隔が近すぎます — もう少し離れて並んでください'
+      : allVis ? 'そのまま動かないで…'
+      : (S.np>1?'2人とも全身が映るように離れて並んでください':'全身（頭〜足首）が映るように位置を調整してください');
+  }
   setTimeout(calibWatch,300);
 }
 function updCalib(pct){
@@ -834,7 +1040,9 @@ function calibDone(){
    <div class="panel">
      <div class="eyebrow">READY</div>
      <h2>準備完了！</h2>
-     <p class="sub">その場でしゃがんだり伸びたりしてみよう — 視点が連動するはず。<br>合図とともに探索スタート。</p>
+     <p class="sub">${S.np>1
+       ? '2人の姿勢を覚えました。<b>同じダンジョンで得点を競い合います。</b>合図とともにスタート。'
+       : 'その場でしゃがんだり伸びたりしてみよう — 視点が連動するはず。<br>合図とともに探索スタート。'}</p>
      <button class="btn" id="goRun">探索スタート</button>
    </div>`;
   $('#goRun').onclick=()=>screenStageSelect();
@@ -877,16 +1085,18 @@ function startRun(stageN){
   S.stage=stageN||S.stage||1;
   S.scene='play';ovl.style.display='none';ovl.innerHTML='';
   buildStage(S.stage);S.enc=null;
-  S.t=0;S.dist=0;S.v=0;S.hearts=3;S.score=0;S.streak=0;S.lastStepT=-9;
-  S.reps={step:0,squat:0,jump:0,jack:0};S.dodges=0;S.maxStreak=0;
-  S.char={hop:0,attack:0,vault:0,walkPh:0};
+  S.t=0;S.dist=0;S.v=0;
+  S.p=[mkPlayer(),mkPlayer()];
   S.shake=0;S.redFlash=0;S.popups=[];S.slash=null;
   S.countdown=3.6;
   lastJumpAny=-9;
   hideHome(true);
-  $('#task').style.display='block';$('#topHud').style.display='flex';
-  $('#streak').style.display='block';
-  $('#practiceBar').style.display=S.mode==='practice'?'flex':'none';
+  document.getElementById('stage').classList.toggle('vs',S.np>1);
+  $('#task').style.display='block';
+  $('#topHud').style.display=S.np>1?'none':'flex';
+  $('#vsHud').style.display=S.np>1?'flex':'none';
+  $('#streak').style.display=S.np>1?'none':'block';
+  $('#practiceBar').style.display=(S.mode==='practice'&&S.np===1)?'flex':'none';
   drawHearts();updTask();
   G3.resetWorld();
   const nm=NEWMOVE[S.stage];
@@ -896,7 +1106,7 @@ function startRun(stageN){
     ovl.innerHTML=`
      <div class="panel">
        <div class="eyebrow">NEW MOVE</div>
-       <h2>新しい動き：${nm[0]}</h2>
+       <h2>新しい動き：${nm[0]}${S.np>1?'（2人とも）':''}</h2>
        <p class="sub">${nm[1]}</p>
        <button class="btn" id="goBrief">わかった！</button>
      </div>`;
@@ -943,12 +1153,15 @@ function updTask(){
   }
   else if(e.kind==='bridge'){
     lbl.innerHTML=e.done?'<b>渡りきれ！</b>':'細い橋だ！ <b>片足立ちでバランス</b>をキープ！';
-    cnt.textContent=e.done?'':`${Math.min(e.needS,e.held).toFixed(1)} / ${e.needS.toFixed(1)} 秒`;
+    cnt.textContent=e.done?''
+      :(S.np>1
+        ? `P1 ${Math.min(e.needS,S.p[0].held).toFixed(1)} ／ P2 ${Math.min(e.needS,S.p[1].held).toFixed(1)} ／ 目標 ${e.needS.toFixed(1)}秒`
+        : `${Math.min(e.needS,S.p[0].held).toFixed(1)} / ${e.needS.toFixed(1)} 秒`);
   }
   else if(e.kind==='dash'){
     taskEl.classList.add('alert');
     lbl.innerHTML=e.done?'<b>走り抜けろ！</b>':'床が崩れる！ <b>高速足踏み</b>で駆け抜けろ！';
-    cnt.textContent=e.done?'':`${e.cnt} / ${e.need} 歩　残り ${Math.max(0,e.timer).toFixed(1)} 秒`;
+    cnt.textContent=e.done?'':`${e.cnt} / ${Math.round(e.need*(S.np>1?1.7:1))} 歩　残り ${Math.max(0,e.timer).toFixed(1)} 秒`;
   }
   else if(e.kind==='goal'){lbl.innerHTML='<b>宝箱だ！</b>';cnt.textContent='';}
 }
@@ -966,6 +1179,8 @@ function finishRun(){
   $('#depthMeter').style.display='none';
   addScore(S.hearts*150,null);
   $('#task').style.display='none';$('#practiceBar').style.display='none';$('#streak').style.display='none';
+  $('#vsHud').style.display='none';$('#topHud').style.display='none';
+  if(S.np>1){ vsResult(); return; }
   const[rk,msg]=rankOf(S.score,S.stage);
   hubReport(S.stage, rk, S.score);
   const table=`<table class="res">
@@ -1011,12 +1226,44 @@ function finishRun(){
     $('#goMenu').onclick=()=>screenMenu();
   }
 }
+function vsResult(){
+  const A=S.p[0],B=S.p[1];
+  const win = A.score===B.score ? 0 : (A.score>B.score?1:2);
+  const row=(lb,a,b)=>`<tr><td>${lb}</td><td style="text-align:center">${a}</td><td style="text-align:right">${b}</td></tr>`;
+  ovl.style.display='flex';
+  ovl.innerHTML=`
+   <div class="panel">
+     <div class="eyebrow">VERSUS RESULT</div>
+     <h2>${S.stage}面「${THEMES[S.stage-1].name}」踏破！</h2>
+     <div class="rank" style="font-size:clamp(30px,7vmin,56px)">
+       ${win===0?'引き分け！':'P'+win+' の勝ち！'}</div>
+     <table class="res">
+       <tr><td></td><td style="text-align:center;color:#FFC53D">P1（左）</td><td style="text-align:right;color:#5AD38A">P2（右）</td></tr>
+       ${row('スコア',A.score,B.score)}
+       ${row('もも上げ足踏み',A.reps.step+' 歩',B.reps.step+' 歩')}
+       ${row('スクワット',A.reps.squat+' 回',B.reps.squat+' 回')}
+       ${row('ジャンプ',A.reps.jump+' 回',B.reps.jump+' 回')}
+       ${row('ジャンピングジャック',A.reps.jack+' 回',B.reps.jack+' 回')}
+       ${row('回避成功',A.dodges+' 回',B.dodges+' 回')}
+       ${row('ミス',A.miss+' 回',B.miss+' 回')}
+       <tr class="total"><td>クリアタイム</td><td colspan="2" style="text-align:right">${S.t.toFixed(1)} 秒</td></tr>
+     </table>
+     <p class="sub">2人ぶんの運動量、しっかり稼げた。<br>深呼吸して水分補給を忘れずに。</p>
+     <button class="btn" id="goAgain">同じ面でリベンジ</button>
+     <button class="btn ghost" id="goSel">面セレクト</button>
+     <button class="btn ghost" id="goMenu">タイトルへ</button>
+   </div>`;
+  $('#goAgain').onclick=()=>startRun(S.stage);
+  $('#goSel').onclick=()=>screenStageSelect();
+  $('#goMenu').onclick=()=>screenMenu();
+}
 function gameOver(){
   if(S.scene!=='play')return;
   S.scene='over';SFX.down();
   hideHome(false);
   $('#depthMeter').style.display='none';
   $('#task').style.display='none';$('#practiceBar').style.display='none';$('#streak').style.display='none';
+  $('#vsHud').style.display='none';$('#topHud').style.display='none';
   ovl.style.display='flex';
   ovl.innerHTML=`
    <div class="panel">
@@ -1065,9 +1312,11 @@ function update(dt){
   S.t+=dt;
   if(!S.enc){
     S.v-=S.v*1.5*dt;if(S.v<0.01)S.v=0;
-    if(S.t-S.lastStepT>1.1)S.streak=0;
+    for(let pi=0;pi<S.np;pi++){
+      if(S.t-S.p[pi].lastStepT>1.1)S.p[pi].streak=0;
+      S.p[pi].char.walkPh+=S.v*dt*3.2;
+    }
     S.dist+=S.v*dt;
-    S.char.walkPh+=S.v*dt*3.2;
     const nx=S.course.find(c=>!c.done&&S.dist>=c.pos-1.5);
     if(nx){
       if(nx.kind==='goal'){nx.done=true;finishRun();}
@@ -1083,9 +1332,16 @@ function update(dt){
   if(S.redFlash>0)S.redFlash-=dt;
   if(S.slash){S.slash.t-=dt;if(S.slash.t<=0)S.slash=null;}
   const st=$('#streak');
-  st.textContent=S.streak>=8?`テンポ×${S.streak}!`:'';
-  $('#hScore').textContent=String(S.score);
+  if(S.np>1){
+    st.textContent='';
+    $('#vsP1').textContent=String(S.p[0].score);
+    $('#vsP2').textContent=String(S.p[1].score);
+  } else {
+    st.textContent=S.streak>=8?`テンポ×${S.streak}!`:'';
+    $('#hScore').textContent=String(S.score);
+  }
   $('#hTime').textContent=S.t.toFixed(1);
+  const t2=$('#hTime2');if(t2)t2.textContent=S.t.toFixed(1);
 }
 
 /* =========================================================
@@ -2243,16 +2499,18 @@ const G3=(()=>{
   function render(t,dt){
     // ---- カメラ（実しゃがみ・実ジャンプ連動） ----
     let cy=1.6;
-    if(S.mode==='camera'&&POSE.base){
-      cy+=Math.min(0.28,POSE.liveRise)*2.6;
-      cy-=Math.min(0.32,POSE.liveDepth)*1.35;
+    if(S.np>1){
+      cy+=Math.abs(Math.sin(S.p[0].char.walkPh))*0.03;
+    }else if(S.mode==='camera'&&POSE.P[0].base){
+      cy+=Math.min(0.28,POSE.P[0].liveRise)*2.6;
+      cy-=Math.min(0.32,POSE.P[0].liveDepth)*1.35;
     }else{
       if(S.char.hop>0)cy+=Math.sin((0.5-S.char.hop)/0.5*Math.PI)*0.5;
       if(S.char.attack>0)cy-=Math.sin(S.char.attack/0.32*Math.PI)*0.28;
     }
     if(S.char.vault>0)cy+=Math.sin((1-S.char.vault)*Math.PI)*0.7;
     cy+=Math.abs(Math.sin(S.char.walkPh))*0.05*Math.min(1,S.v);
-    let cx=Math.max(-0.85,Math.min(0.85,curSide()*0.95)),roll=0;
+    let cx=(S.np>1?0:Math.max(-0.85,Math.min(0.85,curSide(0)*0.95))),roll=0;
     if(S.shake>0){S.shake-=dt;cx+=Math.sin(t*70)*0.04*S.shake;roll=Math.sin(t*55)*0.02*S.shake;}
     camera.position.set(cx,cy,-S.dist);
     camera.rotation.set(0,0,roll);
@@ -2464,8 +2722,22 @@ function loop(now){
   G3.render(t,dt);
   const st=$('#camStatus');
   if(S.mode==='camera'&&S.scene==='play'){
-    if(!POSE.visible){st.textContent='全身が見えません — 頭から足首まで映る位置へ';st.classList.add('warn');}
-    else{st.textContent='検出中：足踏み／スクワット／ジャンプ';st.classList.remove('warn');}
+    const miss=[];
+    for(let i=0;i<S.np;i++) if(!POSE.P[i].visible) miss.push('P'+(i+1));
+    const amb=S.np>1&&(POSE.slots[0].amb||POSE.slots[1].amb);
+    if(S.np>1&&POSE.gapWarn){
+      st.textContent='2人が近すぎます — 離れて立ち直してください';
+      st.classList.add('warn');
+    } else if(amb){
+      st.textContent='どちらか判別できません — もとの立ち位置へ戻ってください';
+      st.classList.add('warn');
+    } else if(miss.length){
+      st.textContent=(S.np>1?miss.join('・')+'が':'')+'見えません — 全身が映る位置へ';
+      st.classList.add('warn');
+    } else {
+      st.textContent=S.np>1?'P1（黄・左）とP2（緑・右）を検出中':'検出中：足踏み／スクワット／ジャンプ';
+      st.classList.remove('warn');
+    }
   }
   requestAnimationFrame(loop);
 }
