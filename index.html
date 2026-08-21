@@ -22,14 +22,15 @@ html,body{height:100%;background:#050302;overflow:hidden;
 #stage{position:relative;width:min(100vw,177.7vh,177.7svh);aspect-ratio:16/9;max-height:100svh;
   background:#050302;overflow:hidden;box-shadow:0 0 60px rgba(0,0,0,.8);display:flex}
 
-/* 2人モード：ゲームは全面。カメラは重ねて出し、全画面↔左下小窓を行き来する */
-#stage.vs #gamePane{width:100%;height:100%}
-#stage.vs #camPane{position:absolute;z-index:8;background:#0b0705;
+/* カメラは重ねて出し、全画面↔左下小窓を行き来する（1人用・2人用とも） */
+#stage.camov #gamePane,#stage.nocam #gamePane{width:100%;height:100%}
+#stage.nocam #camPane{display:none}
+#stage.camov #camPane{position:absolute;z-index:8;background:#0b0705;
   border:3px solid var(--board-line);border-right:3px solid var(--board-line);
   transition:left .35s ease, bottom .35s ease, width .35s ease, height .35s ease, border-radius .35s ease}
-#stage.vs #cam{object-fit:contain}
-#stage.vs.camfull #camPane{left:0;bottom:0;width:100%;height:100%;border-radius:0;border-width:0}
-#stage.vs.cammini #camPane{left:1.5%;bottom:2.5%;width:27%;height:38%;border-radius:6px;
+#stage.camov #cam{object-fit:contain}
+#stage.camov.camfull #camPane{left:0;bottom:0;width:100%;height:100%;border-radius:0;border-width:0}
+#stage.camov.cammini #camPane{left:1.5%;bottom:2.5%;width:27%;height:38%;border-radius:6px;
   box-shadow:0 6px 22px rgba(0,0,0,.6)}
 #camHint{position:absolute;left:50%;top:6%;transform:translateX(-50%);z-index:9;
   background:rgba(10,7,3,.9);border:3px solid var(--amber);border-radius:4px;
@@ -37,14 +38,13 @@ html,body{height:100%;background:#050302;overflow:hidden;
 #camHint .h1{font-family:'DotGothic16',monospace;color:var(--amber);
   font-size:clamp(14px,3vmin,24px);text-shadow:2px 2px 0 #140c04}
 #camHint .h2{font-size:clamp(10px,1.9vmin,14px);color:#C9BFA8;margin-top:.2em;line-height:1.6}
-#stage.vs.camfull #vsHud{display:none!important}
+#stage.camfull #vsHud{display:none!important}
 #camToggle{position:absolute;right:1.5%;bottom:2.5%;z-index:9;display:none;
   font-family:'DotGothic16',monospace;font-size:clamp(10px,1.9vmin,14px);
   background:rgba(10,7,3,.88);color:var(--amber);border:3px solid #4a351e;
   border-radius:4px;padding:.4em .9em;cursor:pointer}
 #camToggle:active{transform:translateY(2px)}
-#stage.vs #camToggle{display:block}
-#stage.vs #gamePane{width:100%}
+#stage.camov #camToggle{display:block}
 #vsHud{position:absolute;top:1.5%;left:1.5%;right:1.5%;z-index:7;display:none;
   justify-content:space-between;align-items:flex-start;gap:8px;pointer-events:none}
 .vsBoard{background:rgba(10,7,3,.9);border:3px solid #4a351e;border-radius:4px;
@@ -65,6 +65,7 @@ html,body{height:100%;background:#050302;overflow:hidden;
   text-shadow:3px 3px 0 #06140c;opacity:0;pointer-events:none;z-index:3}
 #repFlash.show{animation:pop .5s}
 @keyframes pop{0%{opacity:1;transform:translate(-50%,-50%) scale(.6)}70%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.2)}}
+#stage.camov #depthMeter{right:6%;top:8%;bottom:16%;width:12%;min-width:10px}
 #depthMeter{position:absolute;right:4%;top:12%;bottom:22%;width:5%;min-width:14px;
   background:rgba(0,0,0,.45);border:1px solid var(--board-line);border-radius:6px;overflow:hidden;display:none;z-index:3}
 #depthFill{position:absolute;bottom:0;left:0;right:0;height:0%;background:var(--amber)}
@@ -404,17 +405,21 @@ const THEMES=[
 ];
 function buildStage(n){
   const def=STAGES[n-1];
+  const K=(S.np>1?1.7:1);          // 2人なら手数が倍になるぶん、目標値を引き上げる
+  const sc=v=>Math.max(1,Math.round(v*K));
   let pos=2;const out=[];
   for(const it of def.items){
     pos+=def.walk;
-    if(it.k==='rock')out.push({pos,kind:'rock',hp:it.hp,hpMax:it.hp,limit:it.limit,timer:it.limit,done:false,
+    if(it.k==='rock')out.push({pos,kind:'rock',hp:sc(it.hp),hpMax:sc(it.hp),
+      limit:it.limit*(S.np>1?1.25:1),timer:it.limit*(S.np>1?1.25:1),done:false,dmg:[0,0],
       label:'落石が来る前に<b>スクワット</b>で岩を砕け！'});
     else if(it.k==='gap')out.push({pos,kind:'gap',width:1.7,window:it.win,timer:it.win,armed:false,done:false});
-    else if(it.k==='seal')out.push({pos,kind:'seal',need:it.need,cnt:0,done:false});
+    else if(it.k==='seal')out.push({pos,kind:'seal',need:sc(it.need),cnt:0,done:false,dmg:[0,0]});
     else if(it.k==='bridge')out.push({pos,kind:'bridge',width:2.4,needS:it.sec,held:0,done:false});
     else if(it.k==='dash')out.push({pos,kind:'dash',need:it.need,limit:it.sec,timer:it.sec,cnt:0,done:false});
     else out.push({pos,kind:'battle',type:it.t,name:ENEMY_NAMES[it.t],
-      hp:it.hp,hpMax:it.hp,atkMin:it.atk[0],atkMax:it.atk[1],tele:it.tele,
+      hp:sc(it.hp),hpMax:sc(it.hp),dmg:[0,0],
+      atkMin:it.atk[0],atkMax:it.atk[1],tele:it.tele,
       atkT:it.atkT||['jump'],atkKind:'jump',atkDir:1,
       combo:it.combo||1,chainLeft:0,boss:!!it.boss,last:!!it.last,
       state:'idle',st:2,flinch:0,deadT:0,done:false});
@@ -491,7 +496,7 @@ async function initPose(){
   stat.textContent='カメラを起動中…';
   const want=(S.np>1)
     ? {facingMode:'user',width:{ideal:1280},height:{ideal:960},aspectRatio:{ideal:4/3}}
-    : {facingMode:'user',width:{ideal:640},height:{ideal:480}};
+    : {facingMode:'user',width:{ideal:960},height:{ideal:720},aspectRatio:{ideal:4/3}};
   let stream;
   try{ stream=await navigator.mediaDevices.getUserMedia({video:want,audio:false}); }
   catch(e){ stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false}); }
@@ -680,8 +685,8 @@ function drawCamSkeleton(list,np){
   cg.clearRect(0,0,r.width,r.height);
   if(!list||!list.length)return;
   const v=POSE.video;
-  const sc=(np>1)
-    ? Math.min(r.width/v.videoWidth,r.height/v.videoHeight)
+  const sc=(camMode&&document.getElementById('stage').classList.contains('camov'))
+    ? Math.min(r.width/v.videoWidth,r.height/v.videoHeight)   // 重ねて出すときは全体表示
     : Math.max(r.width/v.videoWidth,r.height/v.videoHeight);
   const dw=v.videoWidth*sc,dh=v.videoHeight*sc;
   const ox=(r.width-dw)/2,oy=(r.height-dh)/2;
@@ -749,6 +754,7 @@ function onRep(mv,pi){
     if(e.hp<=0)return;
     if(mv==='squat'){
       P.reps.squat++;e.hp--;SFX.hit();
+      if(e.dmg)e.dmg[pi]++;
       P.char.attack=0.32;S.shake=0.25;addScore(30,'+30',pi);
       G3.rockDamage(e);
       if(e.hp<=0)rockCleared(e,pi);
@@ -758,20 +764,22 @@ function onRep(mv,pi){
     if(e.state==='dead')return;
     if(mv==='squat'){
       P.reps.squat++;SFX.swing();
+      if(e.dmg)e.dmg[pi]++;
       P.char.attack=0.32;e.flinch=0.3;e.hp--;
       addScore(40,'+40',pi);
       if(e.hp<=0){e.state='dead';e.deadT=0;SFX.kill();
-        addScore(e.boss?250:150,(e.boss?'+250':'+150')+' 撃破',pi);}
+        shareBonus(e,e.boss?250:150,'撃破');}
     }
     if(mv==='jump'){P.reps.jump++;}
   }
   else if(e.kind==='seal'){
     if(mv==='jack'&&!e.done){
       P.reps.jack++;e.cnt++;SFX.hit();
+      if(e.dmg)e.dmg[pi]++;
       addScore(12,'+12',pi);G3.sealDamage(e);
       if(e.cnt>=e.need){
         e.doneAnim=true;SFX.smash();S.shake=0.5;
-        G3.sealBreak(e);addScore(120,'封印解除 +120',pi);
+        G3.sealBreak(e);shareBonus(e,120,'封印解除');
         setTimeout(()=>endEncounter(e,null),450);
       }
     }
@@ -802,6 +810,16 @@ function onRep(mv,pi){
     if(mv==='jump'){P.reps.jump++;}
   }
   flash(mv==='step'?'GO!':'OK!');
+}
+/* 与ダメージの比率でボーナスを配る。1人用はそのまま全額 */
+function shareBonus(e,total,label){
+  if(S.np<2){addScore(total,label?('+'+total+' '+label):null,0);return;}
+  const d=e.dmg||[0,0];
+  const sum=d[0]+d[1];
+  for(let pi=0;pi<2;pi++){
+    const part=sum>0?Math.round(total*d[pi]/sum):Math.round(total/2);
+    if(part>0)addScore(part,'+'+part+(label?' '+label:''),pi);
+  }
 }
 function addScore(n,popup,pi){
   pi=pi||0;
@@ -847,8 +865,7 @@ function endEncounter(ev,newDist){
 }
 function rockCleared(e,pi){
   SFX.smash();S.shake=0.6;G3.rockExplode(e);
-  const b=Math.round(e.timer*10);
-  if(pi!=null)addScore(b,'タイムボーナス +'+b,pi);
+  shareBonus(e,Math.round(e.timer*10),'タイムボーナス');
   setTimeout(()=>endEncounter(e,null),400);
 }
 function updateEncounter(dt){
@@ -980,7 +997,7 @@ function screenMenu(){
   S.scene='menu';
   hideHome(false);
   S.np=1;S.paused=false;
-  document.getElementById('stage').classList.remove('vs','camfull','cammini');
+  document.getElementById('stage').classList.remove('vs','camov','nocam','camfull','cammini');
   $('#camHint').style.display='none';
   $('#depthMeter').style.display='none';
   $('#task').style.display='none';$('#topHud').style.display='none';$('#vsHud').style.display='none';
@@ -1023,7 +1040,10 @@ function screenMenu(){
   };
   $('#goCam').onclick=()=>startCam(1);
   $('#goVs').onclick=()=>startCam(2);
-  $('#goPractice').onclick=()=>{ac();S.mode='practice';S.np=1;screenStageSelect();};
+  $('#goPractice').onclick=()=>{ac();S.mode='practice';S.np=1;
+    document.getElementById('stage').classList.remove('vs','camov','camfull','cammini');
+    document.getElementById('stage').classList.add('nocam');
+    screenStageSelect();};
   $('#goFull').onclick=()=>{const el=document.documentElement;
     if(!document.fullscreenElement){(el.requestFullscreen||el.webkitRequestFullscreen||function(){}).call(el);}
     else{(document.exitFullscreen||function(){}).call(document);}};
@@ -1053,10 +1073,10 @@ function screenCalib(){
     POSE.slots[i]={homeX:null,lastX:null,lost:0,amb:false};
   }
   POSE.calibOn=true;
-  if(S.np>1){
-    document.getElementById('stage').classList.add('vs');
-    setCamMode('full','立ち位置を決めます','2人とも全身が映るまで下がってください');
-  }
+  document.getElementById('stage').classList.toggle('vs',S.np>1);
+  setCamMode('full',
+    S.np>1?'立ち位置を決めます':'立ち位置を決めます',
+    S.np>1?'2人とも全身が映るまで下がってください':'頭から足首まで映るところまで下がってください');
   calibWatch();
 }
 function calibWatch(){
@@ -1078,8 +1098,10 @@ function updCalib(pct){
 }
 function calibDone(){
   SFX.dodge();
-  if(S.np>1)setCamMode('full','立ち位置を記録しました',
-    '点線が2人の定位置です。ここに戻れば、いつでも認識し直せます');
+  setCamMode('full',
+    S.np>1?'立ち位置を記録しました':'基準の姿勢を記録しました',
+    S.np>1?'点線が2人の定位置です。ここに戻れば、いつでも認識し直せます'
+          :'この立ち位置を覚えました。見失っても、ここに戻れば再開します');
   ovl.innerHTML=`
    <div class="panel">
      <div class="eyebrow">READY</div>
@@ -1093,7 +1115,8 @@ function calibDone(){
 }
 function screenStageSelect(){
   S.scene='stagesel';hideHome(false);
-  if(S.np>1)setCamMode('full','立ち位置の確認','この画面のうちに、点線の位置に立っておこう');
+  if(S.mode==='camera')setCamMode('full','立ち位置の確認',
+    S.np>1?'この画面のうちに、点線の位置に立っておこう':'この画面のうちに、全身が映る位置に立っておこう');
   ovl.style.display='flex';
   const stars=n=>'★'.repeat(STAGES[n-1].stars)+'☆'.repeat(4-STAGES[n-1].stars);
   let grid='';
@@ -1126,7 +1149,14 @@ let camMode='mini';
 function setCamMode(m,hint,sub){
   camMode=m;
   const st=document.getElementById('stage');
-  if(S.np<2){st.classList.remove('camfull','cammini');return;}
+  if(S.mode!=='camera'){
+    st.classList.remove('camov','camfull','cammini');
+    st.classList.add('nocam');
+    $('#camHint').style.display='none';
+    return;
+  }
+  st.classList.remove('nocam');
+  st.classList.add('camov');
   st.classList.toggle('camfull',m==='full');
   st.classList.toggle('cammini',m==='mini');
   const hintEl=$('#camHint');
@@ -1167,7 +1197,7 @@ function startRun(stageN){
   hideHome(true);
   document.getElementById('stage').classList.toggle('vs',S.np>1);
   S.paused=false;S.lostT=0;S.okT=0;
-  if(S.np>1)setCamMode('mini');
+  setCamMode('mini');
   $('#task').style.display='block';
   $('#topHud').style.display=S.np>1?'none':'flex';
   $('#vsHud').style.display=S.np>1?'flex':'none';
@@ -1187,7 +1217,7 @@ function startRun(stageN){
        <button class="btn" id="goBrief">わかった！</button>
      </div>`;
     $('#goBrief').onclick=()=>{ac();S.scene='play';ovl.style.display='none';ovl.innerHTML='';
-      if(S.np>1)setCamMode('mini');};
+      setCamMode('mini');};
   }
 }
 function updTask(){
@@ -1386,17 +1416,21 @@ function update(dt){
     if(S.countdown<=0){SFX.go();}
     return;
   }
-  // 2人モード：どちらかを見失ったらカメラを開いて仕切り直す
-  if(S.np>1&&S.mode==='camera'){
-    const ok=POSE.P[0].visible&&POSE.P[1].visible&&!POSE.slots[0].amb&&!POSE.slots[1].amb;
+  // 見失ったらカメラを開いて仕切り直す（1人用・2人用とも）
+  if(S.mode==='camera'){
+    let ok=true;
+    for(let i=0;i<S.np;i++) if(!POSE.P[i].visible) ok=false;
+    if(S.np>1&&(POSE.slots[0].amb||POSE.slots[1].amb)) ok=false;
     if(ok){S.okT=(S.okT||0)+dt;S.lostT=0;}else{S.lostT=(S.lostT||0)+dt;S.okT=0;}
     if(!S.paused&&S.lostT>1.2){
       S.paused=true;
       const miss=[];
-      for(let i=0;i<2;i++) if(!POSE.P[i].visible) miss.push('P'+(i+1));
+      for(let i=0;i<S.np;i++) if(!POSE.P[i].visible) miss.push('P'+(i+1));
       setCamMode('full','一時停止：位置を直してください',
-        (miss.length?miss.join('・')+'が映っていません。':'どちらがどちらか判別できません。')
-        +'<br>点線の立ち位置に戻り、2人とも全身が入ると再開します');
+        S.np>1
+          ? (miss.length?miss.join('・')+'が映っていません。':'どちらがどちらか判別できません。')
+            +'<br>点線の立ち位置に戻り、2人とも全身が入ると再開します'
+          : '頭から足首まで映る位置に戻ってください。<br>全身が入ると自動で再開します');
     }
     if(S.paused&&S.okT>0.8){
       S.paused=false;setCamMode('mini');SFX.go();
@@ -2832,7 +2866,9 @@ function loop(now){
       st.textContent=(S.np>1?miss.join('・')+'が':'')+'見えません — 全身が映る位置へ';
       st.classList.add('warn');
     } else {
-      st.textContent=S.np>1?'P1（黄・左）とP2（緑・右）を検出中':'検出中：足踏み／スクワット／ジャンプ';
+      st.textContent=(camMode==='mini')
+        ? (S.np>1?'P1（黄）／P2（緑） 検出中':'検出中')
+        : (S.np>1?'P1（黄・左）とP2（緑・右）を検出中':'検出中：足踏み／スクワット／ジャンプ');
       st.classList.remove('warn');
     }
   }
