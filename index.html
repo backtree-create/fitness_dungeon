@@ -204,7 +204,6 @@ table.res td:last-child{text-align:right;font-family:'DotGothic16',monospace;col
       <button class="pBtn" data-mv="step">足踏み</button>
       <button class="pBtn" data-mv="squat">スクワット</button>
       <button class="pBtn" data-mv="jump">ジャンプ</button>
-      <button class="pBtn" data-mv="jack">Jジャック</button>
       <button class="pBtn" data-mv="left">←よけ</button>
       <button class="pBtn" data-mv="right">よけ→</button>
       <button class="pBtn" data-hold="squat">しゃがみ[押]</button>
@@ -311,82 +310,74 @@ const ENEMY_NAMES={slime:'スライム',pslime:'ポイズンスライム',bat:'�
   ghost:'どうくつゴースト',wraith:'嘆きのレイス',mimic:'ミミック',
   spider:'つりグモ',vspider:'ベノムスパイダー',demon:'魔王グラヴァロス'};
 const STAGES=[
- {walk:11,stars:1,items:[   // 1面：基本3種（足踏み・スクワット・ジャンプ）
-   {k:'rock',hp:5,limit:13},
-   {k:'b',t:'bat',hp:4,atk:[3.2,4.6],tele:1.7},
+ {walk:8,stars:1,items:[   // 1面：足踏み・スクワット・ジャンプ
+   {k:'rock',hp:4,limit:13},
+   {k:'b',t:'bat',hp:3,atk:[3.2,4.6],tele:1.7},
    {k:'gap',win:3.0},
-   {k:'b',t:'skel',hp:7,atk:[2.7,3.9],tele:1.5,boss:1},
+   {k:'b',t:'skel',hp:5,atk:[2.7,3.9],tele:1.5,boss:1},
  ]},
- {walk:11,stars:1,items:[   // 2面：＋ダッシュ
-   {k:'b',t:'slime',hp:4,atk:[3.2,4.4],tele:1.7},
-   {k:'rock',hp:6,limit:12},
-   {k:'dash',need:12,sec:7},
-   {k:'b',t:'bat',hp:5,atk:[3.0,4.2],tele:1.6},
-   {k:'b',t:'golem',hp:9,atk:[2.8,3.8],tele:1.5,boss:1},
+ {walk:8,stars:1,items:[   // 2面：＋サイドステップ回避
+   {k:'b',t:'slime',hp:3,atk:[3.2,4.4],tele:1.7,atkT:['side']},
+   {k:'rock',hp:4,limit:12},
+   {k:'b',t:'bat',hp:4,atk:[3.0,4.2],tele:1.6,atkT:['jump','side']},
+   {k:'gap',win:2.8},
+   {k:'b',t:'golem',hp:6,atk:[2.8,3.8],tele:1.5,boss:1,atkT:['jump','side']},
  ]},
- {walk:10.5,stars:2,items:[ // 3面：＋サイドステップ回避
-   {k:'rock',hp:6,limit:11},
-   {k:'b',t:'ghost',hp:5,atk:[2.9,4.0],tele:1.55,atkT:['side']},
+ {walk:8,stars:2,items:[   // 3面
+   {k:'rock',hp:4,limit:11},
+   {k:'b',t:'ghost',hp:3,atk:[2.9,4.0],tele:1.55,atkT:['side']},
    {k:'gap',win:2.6},
-   {k:'b',t:'slime',hp:5,atk:[2.9,4.0],tele:1.5,atkT:['jump','side']},
-   {k:'b',t:'knight',hp:10,atk:[2.5,3.5],tele:1.4,boss:1,atkT:['jump','side']},
+   {k:'b',t:'slime',hp:4,atk:[2.9,4.0],tele:1.5,atkT:['jump','side']},
+   {k:'b',t:'knight',hp:7,atk:[2.5,3.5],tele:1.4,boss:1,atkT:['jump','side']},
  ]},
- {walk:10.5,stars:2,items:[ // 4面：＋ジャンピングジャック
-   {k:'b',t:'bat',hp:5,atk:[2.8,3.8],tele:1.45,atkT:['jump','side']},
-   {k:'seal',need:6},
-   {k:'rock',hp:7,limit:10.5},
-   {k:'b',t:'fbat',hp:6,atk:[2.6,3.6],tele:1.4,atkT:['side']},
-   {k:'dash',need:14,sec:6.5},
-   {k:'b',t:'madeye',hp:11,atk:[2.4,3.4],tele:1.35,boss:1,atkT:['jump','side']},
+ {walk:7.5,stars:2,items:[ // 4面：＋しゃがみキープ回避
+   {k:'b',t:'bat',hp:4,atk:[2.8,3.8],tele:1.45,atkT:['jump','side']},
+   {k:'rock',hp:5,limit:10.5},
+   {k:'b',t:'eye',hp:4,atk:[2.6,3.6],tele:1.4,atkT:['duck']},
+   {k:'gap',win:2.5},
+   {k:'b',t:'madeye',hp:7,atk:[2.4,3.4],tele:1.35,boss:1,atkT:['jump','duck']},
  ]},
- {walk:10,stars:3,items:[   // 5面：＋しゃがみキープ
-   {k:'b',t:'slime',hp:5,atk:[2.7,3.7],tele:1.4},
+ {walk:7.5,stars:3,items:[ // 5面
+   {k:'b',t:'slime',hp:4,atk:[2.7,3.7],tele:1.4,atkT:['duck']},
    {k:'gap',win:2.4},
-   {k:'b',t:'spider',hp:6,atk:[2.6,3.5],tele:1.35,atkT:['jump','side']},
-   {k:'rock',hp:8,limit:10},
-   {k:'seal',need:7},
-   {k:'b',t:'eye',hp:6,atk:[2.5,3.4],tele:1.3,atkT:['duck']},
-   {k:'b',t:'mgolem',hp:12,atk:[2.4,3.3],tele:1.3,boss:1,combo:2,atkT:['duck','jump']},
+   {k:'b',t:'spider',hp:4,atk:[2.6,3.5],tele:1.35,atkT:['jump','side']},
+   {k:'rock',hp:5,limit:10},
+   {k:'b',t:'mgolem',hp:8,atk:[2.4,3.3],tele:1.3,boss:1,combo:2,atkT:['duck','jump']},
  ]},
- {walk:10,stars:3,items:[   // 6面：＋片足バランス
-   {k:'b',t:'fbat',hp:6,atk:[2.6,3.5],tele:1.35,atkT:['side']},
-   {k:'rock',hp:8,limit:9.5},
+ {walk:7.5,stars:3,items:[ // 6面：＋片足バランス
+   {k:'b',t:'fbat',hp:4,atk:[2.6,3.5],tele:1.35,atkT:['side']},
+   {k:'rock',hp:5,limit:9.5},
    {k:'bridge',sec:4},
-   {k:'b',t:'knight',hp:8,atk:[2.4,3.3],tele:1.3,atkT:['jump','side']},
+   {k:'b',t:'knight',hp:5,atk:[2.4,3.3],tele:1.3,atkT:['jump','side']},
    {k:'gap',win:2.3},
-   {k:'b',t:'pslime',hp:7,atk:[2.4,3.2],tele:1.3,atkT:['duck']},
-   {k:'b',t:'ghost',hp:6,atk:[2.3,3.2],tele:1.25,atkT:['side']},
-   {k:'b',t:'golem',hp:13,atk:[2.3,3.2],tele:1.25,boss:1,combo:2,atkT:['jump','duck']},
+   {k:'b',t:'golem',hp:9,atk:[2.3,3.2],tele:1.25,boss:1,combo:2,atkT:['jump','duck']},
  ]},
- {walk:9.5,stars:4,items:[  // 7面：全部盛り
-   {k:'b',t:'eye',hp:7,atk:[2.5,3.3],tele:1.3,atkT:['side']},
-   {k:'rock',hp:9,limit:9},
-   {k:'dash',need:16,sec:6},
-   {k:'b',t:'madeye',hp:8,atk:[2.3,3.1],tele:1.25,atkT:['duck']},
+ {walk:7,stars:4,items:[   // 7面：＋いのちの泉（ハート回復）
+   {k:'b',t:'eye',hp:5,atk:[2.5,3.3],tele:1.3,atkT:['side']},
+   {k:'rock',hp:6,limit:9},
+   {k:'b',t:'madeye',hp:5,atk:[2.3,3.1],tele:1.25,atkT:['duck']},
+   {k:'spring',need:8,sec:15},
    {k:'bridge',sec:5},
-   {k:'b',t:'spider',hp:8,atk:[2.3,3.1],tele:1.2,atkT:['jump','side']},
-   {k:'seal',need:8},
-   {k:'b',t:'mgolem',hp:14,atk:[2.2,3.0],tele:1.2,boss:1,combo:2,atkT:['jump','side','duck']},
+   {k:'b',t:'spider',hp:5,atk:[2.3,3.1],tele:1.2,atkT:['jump','side']},
+   {k:'b',t:'mgolem',hp:9,atk:[2.2,3.0],tele:1.2,boss:1,combo:2,atkT:['jump','side','duck']},
  ]},
- {walk:9,stars:4,items:[    // 8面：総力戦→ラスボス
-   {k:'b',t:'skel',hp:8,atk:[2.4,3.2],tele:1.25,atkT:['jump','side']},
+ {walk:7,stars:4,items:[   // 8面：総力戦→ラスボス
+   {k:'b',t:'skel',hp:5,atk:[2.4,3.2],tele:1.25,atkT:['jump','side']},
    {k:'gap',win:2.0},
-   {k:'b',t:'mimic',hp:8,atk:[2.2,3.0],tele:1.2,atkT:['duck']},
+   {k:'b',t:'mimic',hp:5,atk:[2.2,3.0],tele:1.2,atkT:['duck']},
    {k:'bridge',sec:5},
-   {k:'b',t:'knight',hp:9,atk:[2.2,3.0],tele:1.2,atkT:['side','duck']},
-   {k:'rock',hp:9,limit:8.5},
-   {k:'dash',need:18,sec:5.5},
-   {k:'b',t:'wraith',hp:9,atk:[2.1,2.9],tele:1.15,atkT:['side']},
-   {k:'seal',need:9},
-   {k:'b',t:'demon',hp:20,atk:[2.0,2.8],tele:1.05,boss:1,last:1,combo:2,atkT:['jump','side','duck']},
+   {k:'b',t:'knight',hp:6,atk:[2.2,3.0],tele:1.2,atkT:['side','duck']},
+   {k:'spring',need:10,sec:16},
+   {k:'rock',hp:6,limit:8.5},
+   {k:'b',t:'wraith',hp:6,atk:[2.1,2.9],tele:1.15,atkT:['side']},
+   {k:'b',t:'demon',hp:13,atk:[2.0,2.8],tele:1.05,boss:1,last:1,combo:2,atkT:['jump','side','duck']},
  ]},
 ];
 const NEWMOVE={
- 2:['ダッシュ','崩れかけた床は<b>高速の足踏み</b>で駆け抜けろ！ 制限時間内に規定の歩数を刻むんだ。'],
- 3:['サイドステップ','矢印つきの攻撃は、<b>実際に一歩、左右へ動いて</b>回避！ 体を動かすと視点も一緒に動くぞ。'],
- 4:['ジャンピングジャック','<b>足を開いてジャンプしながら両手を頭の上へ</b>。封印の扉のルーンを砕く鍵だ。'],
- 5:['しゃがみキープ','「▼」の攻撃は<b>しゃがんだまま</b>やり過ごせ！ 攻撃の瞬間まで深くしゃがんでキープ。'],
+ 2:['サイドステップ','矢印つきの攻撃は、<b>実際に一歩、左右へ動いて</b>回避！ 体を動かすと視点も一緒に動くぞ。'],
+ 4:['しゃがみキープ','「▼」の攻撃は<b>しゃがんだまま</b>やり過ごせ！ 攻撃の瞬間まで深くしゃがんでキープ。'],
  6:['片足バランス','細い一本橋は<b>片足立ちをキープ</b>して渡る。ぐらつかず静止する集中力が試される。'],
+ 7:['いのちの泉','失ったハートを取り戻せる場所がある。<b>制限時間内にスクワット</b>を決めきれば、ハートが1つ回復！'],
 };
 const THEMES=[
  {name:'ふるびた坑道',   kW:'brick',kF:'brick',kC:'brick',accF:'#4a5a2e',
@@ -427,6 +418,8 @@ function buildStage(n){
     else if(it.k==='gap')out.push({pos,kind:'gap',width:1.7,window:it.win,timer:it.win,armed:false,done:false});
     else if(it.k==='seal')out.push({pos,kind:'seal',need:sc(it.need),cnt:0,done:false,dmg:[0,0]});
     else if(it.k==='bridge')out.push({pos,kind:'bridge',width:2.4,needS:it.sec,held:0,done:false});
+    else if(it.k==='spring')out.push({pos,kind:'spring',need:it.need,sec:it.sec,timer:it.sec,
+      cnt:[0,0],ok:[false,false],done:false});
     else if(it.k==='dash')out.push({pos,kind:'dash',need:it.need,limit:it.sec,timer:it.sec,cnt:0,done:false});
     else out.push({pos,kind:'battle',type:it.t,name:ENEMY_NAMES[it.t],
       hp:sc(it.hp),hpMax:sc(it.hp),dmg:[0,0],
@@ -649,16 +642,6 @@ function processPose(lm,pi){
   PS.liveLift=Math.max(liftL,liftR);
   const hipX2=(p[LMK.LH].x+p[LMK.RH].x)/2;
   PS.liveSide=(b.hipX-hipX2)/bh*1.7;
-  const wL=PS.sm[LMK.LW],wR=PS.sm[LMK.RW],nz=PS.sm[LMK.NOSE];
-  if(wL&&wR&&nz){
-    const spread=Math.abs(p[LMK.LA].x-p[LMK.RA].x);
-    const wide=(spread-b.spread)/bh>0.28;
-    const armsUp=wL.y<nz.y&&wR.y<nz.y;
-    if(!PS.jackOpen&&wide&&armsUp&&now-PS.lastJackT>0.45){
-      PS.jackOpen=true;PS.lastJackT=now;onRep('jack',pi);
-    }
-    if(PS.jackOpen&&!wide&&!armsUp)PS.jackOpen=false;
-  }
 }
 function stepKnee(PS,side,lift,now,pi){
   if(!PS.kneeUp[side]&&lift>0.16&&now-PS.lastStepT>0.16){
@@ -795,6 +778,28 @@ function onRep(mv,pi){
       }
     }
   }
+  else if(e.kind==='spring'){
+    if(mv==='squat'&&!e.done&&!e.ok[pi]){
+      P.reps.squat++;SFX.hit();P.char.attack=0.32;
+      e.cnt[pi]++;
+      G3.springFill(e,Math.min(1,e.cnt[pi]/e.need));
+      addScore(15,'+15',pi);
+      if(e.cnt[pi]>=e.need){
+        e.ok[pi]=true;SFX.chest();
+        if(S.np>1){
+          const first=!e.ok[1-pi];
+          addScore(first?250:150,first?'先取！ +250':'+150',pi);
+        } else {
+          if(P.hearts<3){P.hearts++;drawHearts();
+            S.popups.push({txt:'ハート回復！',rx:0.5,ry:0.36,life:1.4,pi});}
+          else addScore(200,'満タン！ +200',pi);
+        }
+        G3.springBurst(e);
+        const all=(S.np===1)||(e.ok[0]&&e.ok[1]);
+        if(all){e.done=true;setTimeout(()=>endEncounter(e,null),600);}
+      }
+    }
+  }
   else if(e.kind==='dash'){
     if(mv==='step'&&!e.done){
       P.reps.step++;e.cnt++;SFX.step();
@@ -867,6 +872,7 @@ function enterEncounter(ev){
   if(ev.kind==='dash'){ev.timer=ev.limit;SFX.warn();}
   if(ev.kind==='bridge'){for(let pi=0;pi<S.np;pi++)S.p[pi].held=0;ev.limit=null;SFX.warn();}
   if(ev.kind==='seal'){SFX.warn();}
+  if(ev.kind==='spring'){ev.timer=ev.sec;SFX.chest();}
   updTask();
 }
 function endEncounter(ev,newDist){
@@ -939,6 +945,17 @@ function updateEncounter(dt){
   }
   else if(e.kind==='seal'){
     // 時間制限なし：JJで解除するのみ（onRep側で進行）
+  }
+  else if(e.kind==='spring'){
+    if(!e.done){
+      e.timer-=dt;
+      if(e.timer<=0){
+        e.done=true;
+        for(let pi=0;pi<S.np;pi++) if(!e.ok[pi])
+          S.popups.push({txt:(S.np>1?'P'+(pi+1)+' ':'')+'泉は枯れた…',rx:S.np>1?(pi===0?0.3:0.7):0.5,ry:0.4,life:1.2,red:true});
+        setTimeout(()=>endEncounter(e,null),500);
+      }
+    }
   }
   else if(e.kind==='bridge'){
     if(!e.done){
@@ -1027,13 +1044,14 @@ function screenMenu(){
      落石はカウントダウン、モンスターは「！」のあと本当に襲ってくる。ハート3つで挑め。</p>
      <div class="safety"><b>安全のために：</b>周囲2歩ぶんのスペース確保／すべらない床で／準備運動をしてから／息が上がったら休む・水分補給。<b>痛みを感じたらすぐ中止。</b></div>
      <div class="safety" style="background:rgba(255,197,61,.07);border-color:rgba(255,197,61,.5)">
-       <b style="color:var(--amber)">2人で対戦するときは：</b>カメラから<b>2.5m</b>ほど離れ、2人が<b>1m</b>間隔で並べる場所で。</div>
+       <b style="color:var(--amber)">2人で対戦するときは：</b>カメラから<b>2.5m</b>ほど離れ、2人が<b>1m</b>間隔で並べる場所で。
+       立ち位置に床テープを貼ると取り違えが起きません。</div>
      <button class="btn" id="goCam">1人でプレイ（カメラ）</button>
      <button class="btn" id="goVs">2人で対戦（カメラ）</button>
      <button class="btn ghost" id="goPractice">練習モード（カメラなし）</button>
      <button class="btn ghost" id="goFull">全画面</button>
      <div id="err"></div>
-     <div class="trivia"><b>保体メモ：</b>強さの違う運動を交互に行うと心拍数が上下する。これは<b>インターバルトレーニング</b>の考え方。全身をバランスよく。</div>
+     <div class="trivia"><b>保体メモ：</b>強さの違う運動を交互に行うと心拍数が上下する。これは<b>インターバルトレーニング</b>の考え方。走り＋筋トレ＋ジャンプで全身をバランスよく。</div>
    </div>`;
   const startCam=async(np)=>{
     ac();S.np=np;
@@ -1247,6 +1265,12 @@ function updTask(){
     lbl.innerHTML='<b>ジャンピングジャック！</b>';
     cnt.textContent=`${e.cnt} / ${e.need} 回`;
   }
+  else if(e.kind==='spring'){
+    lbl.innerHTML='<b>スクワットで泉を満たせ！</b>';
+    cnt.textContent=(S.np>1
+      ? `P1 ${Math.min(e.need,e.cnt[0])}／P2 ${Math.min(e.need,e.cnt[1])}／${e.need}回`
+      : `${Math.min(e.need,e.cnt[0])} / ${e.need} 回`)+`　あと ${Math.max(0,e.timer).toFixed(1)}秒`;
+  }
   else if(e.kind==='bridge'){
     lbl.innerHTML=e.done?'<b>渡りきれ！</b>':'<b>片足立ちでキープ！</b>';
     cnt.textContent=e.done?''
@@ -1283,7 +1307,6 @@ function finishRun(){
        <tr><td>クリアタイム</td><td>${S.t.toFixed(1)} 秒</td></tr>
        <tr><td>もも上げ足踏み（最大テンポ連続 ${S.maxStreak}）</td><td>${S.reps.step} 歩</td></tr>
        <tr><td>スクワット</td><td>${S.reps.squat} 回</td></tr>
-       <tr><td>ジャンピングジャック</td><td>${S.reps.jack} 回</td></tr>
        <tr><td>ジャンプ／回避成功</td><td>${S.reps.jump} 回 ／ ${S.dodges} 回</td></tr>
        <tr><td>残りハートボーナス</td><td>${S.hearts} × 150</td></tr>
        <tr><td><b>SCORE</b></td><td>${S.score}</td></tr>
@@ -1339,7 +1362,6 @@ function vsResult(){
        ${row('もも上げ足踏み',A.reps.step+' 歩',B.reps.step+' 歩')}
        ${row('スクワット',A.reps.squat+' 回',B.reps.squat+' 回')}
        ${row('ジャンプ',A.reps.jump+' 回',B.reps.jump+' 回')}
-       ${row('ジャンピングジャック',A.reps.jack+' 回',B.reps.jack+' 回')}
        ${row('回避成功',A.dodges+' 回',B.dodges+' 回')}
        ${row('ミス',A.miss+' 回',B.miss+' 回')}
        <tr class="total"><td>クリアタイム</td><td colspan="2" style="text-align:right">${S.t.toFixed(1)} 秒</td></tr>
@@ -2383,7 +2405,7 @@ const G3=(()=>{
     vspider:{maps:[SPIDER],pal:vspiderPal,h:1.35,y:2.0,fly:true,glowY:0},
     demon:{maps:[DEMON],pal:demonPal,h:2.75,y:1.45,hover:true,glowY:0.7},
   };
-  const views={enemies:[],rocks:[],gaps:[],seals:[],bridges:[],dashes:[]};
+  const views={enemies:[],rocks:[],gaps:[],seals:[],bridges:[],dashes:[],springs:[]};
   function disposeObj(o,parent){
     o.traverse(m=>{
       if((m.isMesh||m.isSprite)&&m.material){
@@ -2488,6 +2510,50 @@ const G3=(()=>{
     v.door.visible=false;v.light.intensity=4;
     burstDebris(0,1.4,v.baseZ);
   }
+  function springCanvas(fill){
+    const c=document.createElement('canvas');c.width=48;c.height=56;
+    const x=c.getContext('2d');
+    // 石の水盤
+    x.fillStyle='#140c06';x.fillRect(6,30,36,4);x.fillRect(4,34,40,18);
+    x.fillStyle='#6a5a44';x.fillRect(6,32,36,18);
+    x.fillStyle='#4a3c2c';x.fillRect(6,46,36,5);
+    // 台座の彫り
+    x.fillStyle='#8d7a58';
+    for(let i=0;i<5;i++)x.fillRect(9+i*7,36,4,10);
+    // 水（満たすほど高く光る）
+    const h=Math.round(20*fill);
+    if(h>0){
+      x.fillStyle='#5ad3c2';x.fillRect(10,30-h+2,28,h);
+      x.fillStyle='#b5fff2';x.fillRect(12,30-h+2,24,Math.max(2,h*0.35|0));
+      x.fillStyle='#eaffff';x.fillRect(16,30-h+3,6,2);
+    }
+    // 立ちのぼる光
+    x.fillStyle='rgba(90,211,194,'+(0.25+0.5*fill)+')';
+    x.fillRect(20,4,8,26);x.fillRect(22,0,4,30);
+    return c;
+  }
+  function makeSpringView(e){
+    const mat=new THREE.MeshBasicMaterial({map:texOf(springCanvas(0)),transparent:true,alphaTest:0.05,fog:true});
+    const plane=new THREE.Mesh(new THREE.PlaneGeometry(1.5,1.75),mat);
+    plane.position.set(0,0.85,-e.pos);world.add(plane);
+    const light=new THREE.PointLight(0x5ad3c2,1.6,6,1.6);
+    light.position.set(0,1.2,-e.pos+0.7);scene.add(light);
+    const v={e,plane,light,baseZ:-e.pos};
+    e._spv=v;views.springs.push(v);return v;
+  }
+  function springFill(e,f){
+    const v=e._spv;if(!v)return;
+    const old=v.plane.material.map;
+    v.plane.material.map=texOf(springCanvas(f));
+    v.plane.material.needsUpdate=true;
+    if(old)old.dispose();
+    v.light.intensity=1.6+f*2.4;
+  }
+  function springBurst(e){
+    const v=e._spv;if(!v)return;
+    v.light.intensity=6;
+    burstDebris(0,1.0,v.baseZ);
+  }
   function makeBridgeView(e){
     const g=new THREE.Group();
     const pit=new THREE.Mesh(new THREE.PlaneGeometry(CW,e.width+0.2),
@@ -2540,7 +2606,8 @@ const G3=(()=>{
     for(const v of views.seals){disposeObj(v.door,world);scene.remove(v.light);}
     for(const v of views.bridges)disposeObj(v.g,world);
     for(const v of views.dashes){disposeObj(v.crack,world);scene.remove(v.warn);}
-    views.enemies=[];views.rocks=[];views.gaps=[];views.seals=[];views.bridges=[];views.dashes=[];
+    for(const v of views.springs){disposeObj(v.plane,world);scene.remove(v.light);}
+    views.enemies=[];views.rocks=[];views.gaps=[];views.seals=[];views.bridges=[];views.dashes=[];views.springs=[];
     for(const e of S.course){
       if(e.kind==='battle')makeEnemyView(e);
       else if(e.kind==='rock')makeRockView(e);
@@ -2548,6 +2615,7 @@ const G3=(()=>{
       else if(e.kind==='seal')makeSealView(e);
       else if(e.kind==='bridge')makeBridgeView(e);
       else if(e.kind==='dash')makeDashView(e);
+      else if(e.kind==='spring')makeSpringView(e);
     }
     chestMesh.position.set(0,0.5,-(S.goal+1.2));
     chestLight.position.set(0,1.0,-(S.goal+0.8));
@@ -2667,6 +2735,10 @@ const G3=(()=>{
       v.light.intensity=(1.4+v.e.cnt*0.25)+Math.sin(t*5)*0.3;
     }
     for(const v of views.bridges)v.ember.intensity=0.9+Math.sin(t*7+v.e.pos)*0.35;
+    for(const v of views.springs){
+      v.plane.position.y=0.85+Math.sin(t*2.2)*0.03;
+      if(!v.e.done)v.light.intensity=Math.max(v.light.intensity,1.4+Math.sin(t*4)*0.5);
+    }
     for(const v of views.dashes){
       const e=v.e;
       if(S.enc===e&&!e.done){
@@ -2837,7 +2909,8 @@ const G3=(()=>{
 
   fit();
   applyTheme(1);
-  return {render,resetWorld,rockDamage,rockExplode,rockFall,sealDamage,sealBreak,dashCrumble,fit};
+  return {render,resetWorld,rockDamage,rockExplode,rockFall,sealDamage,sealBreak,dashCrumble,
+    springFill,springBurst,fit};
 })();
 
 /* ---------------- メインループ ---------------- */
