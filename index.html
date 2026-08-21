@@ -32,12 +32,22 @@ html,body{height:100%;background:#050302;overflow:hidden;
 #stage.camov.camfull #camPane{left:0;bottom:0;width:100%;height:100%;border-radius:0;border-width:0}
 #stage.camov.cammini #camPane{left:1.5%;bottom:2.5%;width:27%;height:38%;border-radius:6px;
   box-shadow:0 6px 22px rgba(0,0,0,.6)}
-#camHint{position:absolute;left:50%;top:6%;transform:translateX(-50%);z-index:9;
+#stage.camfull #ovl{align-items:flex-end;pointer-events:none}
+#stage.camfull .panel{pointer-events:auto}
+.panel.slim{background:rgba(10,7,3,.9);border:3px solid #4a351e;border-radius:6px;
+  width:auto;max-width:94%;padding:.5em 1.6em;margin-bottom:2.5%;
+  display:flex;align-items:center;justify-content:center;gap:1.2em;text-align:left}
+.bigPct{font-family:'DotGothic16',monospace;color:var(--amber);line-height:1;
+  font-size:clamp(38px,10vmin,96px);text-shadow:3px 3px 0 #140c04}
+.bigMsg{font-family:'DotGothic16',monospace;line-height:1.35;
+  font-size:clamp(18px,4vmin,40px);text-shadow:2px 2px 0 #140c04}
+.bigMsg b{color:var(--amber)}
+#camHint{position:absolute;left:50%;top:4%;transform:translateX(-50%);z-index:9;
   background:rgba(10,7,3,.9);border:3px solid var(--amber);border-radius:4px;
   padding:.5em 1.2em;display:none;text-align:center;max-width:86%}
 #camHint .h1{font-family:'DotGothic16',monospace;color:var(--amber);
-  font-size:clamp(14px,3vmin,24px);text-shadow:2px 2px 0 #140c04}
-#camHint .h2{font-size:clamp(10px,1.9vmin,14px);color:#C9BFA8;margin-top:.2em;line-height:1.6}
+  font-size:clamp(20px,4.6vmin,44px);text-shadow:3px 3px 0 #140c04}
+#camHint .h2{font-size:clamp(13px,2.6vmin,22px);color:#E8DFC8;margin-top:.25em;line-height:1.5;font-weight:700}
 #stage.camfull #vsHud{display:none!important}
 #camToggle{position:absolute;right:1.5%;bottom:2.5%;z-index:9;display:none;
   font-family:'DotGothic16',monospace;font-size:clamp(10px,1.9vmin,14px);
@@ -49,8 +59,8 @@ html,body{height:100%;background:#050302;overflow:hidden;
   justify-content:space-between;align-items:flex-start;gap:8px;pointer-events:none}
 .vsBoard{background:rgba(10,7,3,.9);border:3px solid #4a351e;border-radius:4px;
   padding:.25em .9em;text-align:center;min-width:26%}
-.vsBoard .who{font-family:'DotGothic16',monospace;font-size:clamp(9px,1.6vmin,13px);letter-spacing:.15em}
-.vsBoard .sc{font-family:'DotGothic16',monospace;font-size:clamp(15px,3.2vmin,28px);line-height:1.1;
+.vsBoard .who{font-family:'DotGothic16',monospace;font-size:clamp(11px,2.2vmin,18px);letter-spacing:.12em}
+.vsBoard .sc{font-family:'DotGothic16',monospace;font-size:clamp(20px,4.6vmin,44px);line-height:1.1;
   text-shadow:2px 2px 0 #140c04}
 #vsP1box{border-color:#8a6a22}#vsP1box .who,#vsP1box .sc{color:#FFC53D}
 #vsP2box{border-color:#2f7a4a}#vsP2box .who,#vsP2box .sc{color:#5AD38A}
@@ -79,10 +89,11 @@ html,body{height:100%;background:#050302;overflow:hidden;
   background:rgba(10,7,3,.88);border:3px solid #4a351e;border-radius:4px;
   padding:1% 2.6%;text-align:center;min-width:62%;z-index:5;display:none;
   box-shadow:0 0 0 2px #0a0703, inset 0 0 24px rgba(255,138,61,.06)}
-#taskLbl{font-family:'DotGothic16',monospace;font-weight:400;font-size:clamp(13px,2.6vmin,22px);color:var(--white)}
+#taskLbl{font-family:'DotGothic16',monospace;font-weight:400;font-size:clamp(18px,4.4vmin,40px);
+  color:var(--white);text-shadow:2px 2px 0 #140c04;line-height:1.3}
 #taskLbl b{color:var(--amber);font-weight:400}
 #taskLbl .dodge{color:var(--good)}
-#taskCnt{font-family:'DotGothic16',monospace;color:var(--amber);font-size:clamp(17px,3.6vmin,32px);
+#taskCnt{font-family:'DotGothic16',monospace;color:var(--amber);font-size:clamp(20px,4.6vmin,44px);
   letter-spacing:.1em;text-shadow:2px 2px 0 #140c04}
 #task.alert{border-color:var(--red);animation:alertPulse .5s infinite alternate}
 @keyframes alertPulse{from{box-shadow:0 0 0 2px #0a0703}to{box-shadow:0 0 0 2px #0a0703,0 0 22px rgba(229,83,60,.7)}}
@@ -90,13 +101,13 @@ html,body{height:100%;background:#050302;overflow:hidden;
 #topHud{position:absolute;top:1.5%;right:1.5%;z-index:5;display:none;gap:8px;align-items:stretch}
 .miniBoard{background:rgba(10,7,3,.88);border:3px solid #4a351e;border-radius:4px;padding:.3em .9em;text-align:center}
 .miniBoard .lbl{font-family:'DotGothic16',monospace;font-size:clamp(8px,1.4vmin,12px);color:var(--amber-dim);letter-spacing:.15em}
-.miniBoard .val{font-family:'DotGothic16',monospace;color:var(--amber);font-size:clamp(14px,2.9vmin,26px);line-height:1.1;text-shadow:2px 2px 0 #140c04}
+.miniBoard .val{font-family:'DotGothic16',monospace;color:var(--amber);font-size:clamp(18px,3.8vmin,34px);line-height:1.1;text-shadow:2px 2px 0 #140c04}
 #hearts{display:flex;align-items:center;gap:4px;padding:.35em .7em}
 #hearts svg{width:clamp(16px,3.2vmin,28px);height:auto;image-rendering:pixelated}
 #hearts .lost path{fill:#3A2A2A}
 
-#streak{position:absolute;top:1.5%;left:32%;z-index:5;display:none;
-  font-family:'DotGothic16',monospace;color:var(--torch);font-size:clamp(14px,3vmin,26px);
+#streak{position:absolute;top:1.5%;left:4%;z-index:5;display:none;
+  font-family:'DotGothic16',monospace;color:var(--torch);font-size:clamp(18px,4vmin,36px);
   text-shadow:2px 2px 0 #140c04}
 
 #practiceBar{position:absolute;left:50%;bottom:15%;transform:translateX(-50%);z-index:6;display:none;gap:8px;
@@ -1052,21 +1063,9 @@ function screenCalib(){
   S.scene='calib';
   ovl.style.display='flex';
   ovl.innerHTML=`
-   <div class="panel">
-     <div class="eyebrow">CALIBRATION</div>
-     <h2>基準の姿勢を覚えます</h2>
-     <p class="sub">${S.np>1
-       ? 'カメラから<b>2.5mほど下がり</b>、2人が<b>1m離れて</b>並んでください。<br>暗くなっていない範囲に<b>2人とも全身</b>が入ればOK。<br>画面の<b>左がP1（黄）、右がP2（緑）</b>。そのまま<b>気をつけの姿勢で静止</b>。'
-       : 'カメラに<b>頭から足首まで</b>が映るように下がって、<br><b>気をつけの姿勢でじっと立ってください。</b>'}</p>
-     <div id="calibRing">
-       <svg viewBox="0 0 100 100">
-         <circle cx="50" cy="50" r="44" fill="none" stroke="#3A2A12" stroke-width="8"/>
-         <circle id="calibArc" cx="50" cy="50" r="44" fill="none" stroke="#FFC53D" stroke-width="8"
-           stroke-dasharray="276.5" stroke-dashoffset="276.5" stroke-linecap="round"/>
-       </svg>
-       <div id="calibPct">0%</div>
-     </div>
-     <p class="sub" id="calibMsg">全身の検出を待っています…</p>
+   <div class="panel slim">
+     <div class="bigPct" id="calibPct">0%</div>
+     <div class="bigMsg" id="calibMsg">下がって<b>全身</b>を映そう</div>
    </div>`;
   for(let i=0;i<S.np;i++){
     POSE.P[i].calib.frames=[];POSE.P[i].calib.on=true;POSE.P[i].base=null;
@@ -1074,9 +1073,7 @@ function screenCalib(){
   }
   POSE.calibOn=true;
   document.getElementById('stage').classList.toggle('vs',S.np>1);
-  setCamMode('full',
-    S.np>1?'立ち位置を決めます':'立ち位置を決めます',
-    S.np>1?'2人とも全身が映るまで下がってください':'頭から足首まで映るところまで下がってください');
+  setCamMode('full');
   calibWatch();
 }
 function calibWatch(){
@@ -1085,38 +1082,31 @@ function calibWatch(){
   let allVis=true;
   for(let i=0;i<S.np;i++) if(!POSE.P[i].visible) allVis=false;
   if(m){
-    m.textContent = POSE.tooClose ? '2人の間隔が近すぎます — もう少し離れて並んでください'
-      : allVis ? 'そのまま動かないで…'
-      : (S.np>1?'2人とも全身が映るように離れて並んでください':'全身（頭〜足首）が映るように位置を調整してください');
+    m.innerHTML = POSE.tooClose ? 'もっと<b>離れて</b>並ぼう'
+      : allVis ? '<b>そのまま静止</b>'
+      : (S.np>1?'2人とも<b>全身</b>を映そう':'下がって<b>全身</b>を映そう');
   }
   setTimeout(calibWatch,300);
 }
 function updCalib(pct){
-  const arc=$('#calibArc');if(!arc)return;
-  arc.style.strokeDashoffset=String(276.5*(1-pct/100));
-  $('#calibPct').textContent=pct+'%';
+  const el=$('#calibPct');
+  if(el)el.textContent=pct+'%';
+  const arc=$('#calibArc');
+  if(arc)arc.style.strokeDashoffset=String(276.5*(1-pct/100));
 }
 function calibDone(){
   SFX.dodge();
-  setCamMode('full',
-    S.np>1?'立ち位置を記録しました':'基準の姿勢を記録しました',
-    S.np>1?'点線が2人の定位置です。ここに戻れば、いつでも認識し直せます'
-          :'この立ち位置を覚えました。見失っても、ここに戻れば再開します');
+  setCamMode('full');
   ovl.innerHTML=`
-   <div class="panel">
-     <div class="eyebrow">READY</div>
-     <h2>準備完了！</h2>
-     <p class="sub">${S.np>1
-       ? '2人の姿勢を覚えました。<b>同じダンジョンで得点を競い合います。</b>合図とともにスタート。'
-       : 'その場でしゃがんだり伸びたりしてみよう — 視点が連動するはず。<br>合図とともに探索スタート。'}</p>
-     <button class="btn" id="goRun">探索スタート</button>
+   <div class="panel slim">
+     <div class="bigMsg">${S.np>1?'2人の位置を記録した':'姿勢を記録した'}</div>
+     <button class="btn" id="goRun" style="font-size:clamp(18px,4vmin,34px);padding:.5em 1.6em">つぎへ</button>
    </div>`;
   $('#goRun').onclick=()=>screenStageSelect();
 }
 function screenStageSelect(){
   S.scene='stagesel';hideHome(false);
-  if(S.mode==='camera')setCamMode('full','立ち位置の確認',
-    S.np>1?'この画面のうちに、点線の位置に立っておこう':'この画面のうちに、全身が映る位置に立っておこう');
+  if(S.mode==='camera')setCamMode('mini');
   ovl.style.display='flex';
   const stars=n=>'★'.repeat(STAGES[n-1].stars)+'☆'.repeat(4-STAGES[n-1].stars);
   let grid='';
@@ -1225,41 +1215,41 @@ function updTask(){
   const e=S.enc;
   taskEl.classList.remove('alert');
   if(!e){
-    lbl.innerHTML='<b>もも上げ足踏み</b>で走れ！ テンポが速いほどスピードUP';
-    cnt.textContent=`${S.stage}面 ${THEMES[S.stage-1].name}　${S.dist.toFixed(0)} / ${S.goal} m`;
+    lbl.innerHTML='<b>足踏み</b>で走れ！';
+    cnt.textContent=`${S.dist.toFixed(0)} / ${S.goal} m`;
     return;
   }
   if(e.kind==='rock'){
     taskEl.classList.add('alert');
-    lbl.innerHTML=e.label;
-    cnt.textContent=`岩HP ${Math.max(0,e.hp)}　落石まで ${Math.max(0,e.timer).toFixed(1)} 秒`;
+    lbl.innerHTML='<b>スクワット</b>で岩を砕け！';
+    cnt.textContent=`岩 ${Math.max(0,e.hp)}　あと ${Math.max(0,e.timer).toFixed(1)}秒`;
   }
   else if(e.kind==='battle'){
     if(e.state==='tele'){
       taskEl.classList.add('alert');
       const msg=e.atkKind==='side'
-        ? `！ ${e.atkDir>0?'右':'左'}へ<b>サイドステップ！</b>`
+        ? `<b>${e.atkDir>0?'右':'左'}へよけろ！</b>`
         : e.atkKind==='duck'
-        ? '！ <b>しゃがんで</b>やり過ごせ！'
-        : '！ 攻撃が来る — <b>ジャンプで回避！</b>';
+        ? '<b>しゃがめ！</b>'
+        : '<b>ジャンプ！</b>';
       lbl.innerHTML=`<span class="dodge">${msg}</span>`;
     } else {
       const tag=e.boss?(e.last?'【ラスボス】':'【中ボス】'):'';
-      lbl.innerHTML=`<b>${tag}${e.name}</b> があらわれた！ <b>スクワット</b>で攻撃！`;
+      lbl.innerHTML=`${tag}${e.name}　<b>スクワットで攻撃！</b>`;
     }
     cnt.textContent=`敵HP ${Math.max(0,e.hp)} / ${e.hpMax}`;
   }
   else if(e.kind==='gap'){
     taskEl.classList.add('alert');
-    lbl.innerHTML='<b>谷だ！ 今すぐジャンプ！</b>';
-    cnt.textContent=`残り ${Math.max(0,e.timer).toFixed(1)} 秒`;
+    lbl.innerHTML='<b>ジャンプ！</b>';
+    cnt.textContent=`あと ${Math.max(0,e.timer).toFixed(1)}秒`;
   }
   else if(e.kind==='seal'){
-    lbl.innerHTML='封印の扉だ！ <b>ジャンピングジャック</b>でルーンを砕け！';
+    lbl.innerHTML='<b>ジャンピングジャック！</b>';
     cnt.textContent=`${e.cnt} / ${e.need} 回`;
   }
   else if(e.kind==='bridge'){
-    lbl.innerHTML=e.done?'<b>渡りきれ！</b>':'細い橋だ！ <b>片足立ちでバランス</b>をキープ！';
+    lbl.innerHTML=e.done?'<b>渡りきれ！</b>':'<b>片足立ちでキープ！</b>';
     cnt.textContent=e.done?''
       :(S.np>1
         ? `P1 ${Math.min(e.needS,S.p[0].held).toFixed(1)} ／ P2 ${Math.min(e.needS,S.p[1].held).toFixed(1)} ／ 目標 ${e.needS.toFixed(1)}秒`
@@ -1267,8 +1257,8 @@ function updTask(){
   }
   else if(e.kind==='dash'){
     taskEl.classList.add('alert');
-    lbl.innerHTML=e.done?'<b>走り抜けろ！</b>':'床が崩れる！ <b>高速足踏み</b>で駆け抜けろ！';
-    cnt.textContent=e.done?'':`${e.cnt} / ${Math.round(e.need*(S.np>1?1.7:1))} 歩　残り ${Math.max(0,e.timer).toFixed(1)} 秒`;
+    lbl.innerHTML=e.done?'<b>走り抜けろ！</b>':'<b>全力で足踏み！</b>';
+    cnt.textContent=e.done?'':`${e.cnt} / ${Math.round(e.need*(S.np>1?1.7:1))} 歩　あと ${Math.max(0,e.timer).toFixed(1)}秒`;
   }
   else if(e.kind==='goal'){lbl.innerHTML='<b>宝箱だ！</b>';cnt.textContent='';}
 }
@@ -2713,21 +2703,27 @@ const G3=(()=>{
       const p=projectToScreen(v.g,v.d.h*0.55*v.scale);
       if(p.z>1)continue;
       const kk=e.st/e.tele;
-      og.strokeStyle='rgba(229,83,60,.95)';og.lineWidth=5;
-      og.beginPath();og.arc(p.x,p.y,18+70*kk,0,7);og.stroke();
-      og.fillStyle='#E5533C';og.font='700 44px DotGothic16';
-      og.textAlign='center';
+      const F=Math.max(46,Math.round(OH*0.13));
+      const R=Math.max(26,OH*0.045)+OH*0.13*kk;
+      const mx=F*1.9, my=F*1.1;
+      const cx=Math.min(OW-mx,Math.max(mx,p.x));
+      const cy=Math.min(OH*0.72,Math.max(my,p.y));
+      og.strokeStyle='rgba(229,83,60,.95)';og.lineWidth=Math.max(5,OH*0.011);
+      og.beginPath();og.arc(cx,cy,R,0,7);og.stroke();
+      og.fillStyle='#E5533C';og.textAlign='center';og.textBaseline='middle';
+      og.font=`700 ${F}px DotGothic16`;
       if(e.atkKind==='side'){
         const dir=e.atkDir>0?1:-1;
-        og.fillText(dir>0?'→→':'←←',p.x+dir*90,p.y+16);
-        og.fillText('！',p.x,p.y+16);
+        const ax=Math.min(OW-F*0.9,Math.max(F*0.9,cx+dir*(R+F*0.75)));
+        og.fillText(dir>0?'→':'←',ax,cy);
+        og.fillText('！',cx,cy);
       } else if(e.atkKind==='duck'){
-        og.fillText('！',p.x,p.y+16);
-        og.fillText('▼',p.x,p.y+70);
+        og.fillText('！',cx,cy);
+        og.fillText('▼',cx,Math.min(OH-F*0.7,cy+R+F*0.6));
       } else {
-        og.fillText('！',p.x,p.y+16);
+        og.fillText('！',cx,cy);
       }
-      og.textAlign='left';
+      og.textAlign='left';og.textBaseline='alphabetic';
     }
     // 斬撃
     if(S.slash){
@@ -2739,7 +2735,7 @@ const G3=(()=>{
       og.lineWidth=4*(1-k*0.5);
       og.beginPath();og.moveTo(OW*0.22+k*40,yBase-OH*0.2);og.lineTo(OW*0.92-k*40,yBase+OH*0.06);og.stroke();
       if(S.slash.dodged&&k<0.5){
-        og.fillStyle='rgba(90,211,138,.95)';og.font='700 30px DotGothic16';
+        og.fillStyle='rgba(90,211,138,.95)';og.font=`700 ${Math.max(28,Math.round(OH*0.07))}px DotGothic16`;
         og.textAlign='center';og.fillText('スカした！',OW/2,OH*0.64);og.textAlign='left';
       }
     }
@@ -2751,7 +2747,7 @@ const G3=(()=>{
     // ポップアップ
     og.textAlign='center';
     for(const p of S.popups){
-      og.font='700 24px DotGothic16';
+      og.font=`700 ${Math.max(22,Math.round(OH*0.055))}px DotGothic16`;
       og.fillStyle=p.red?`rgba(229,83,60,${Math.min(1,p.life)})`:`rgba(255,197,61,${Math.min(1,p.life)})`;
       og.fillText(p.txt,p.rx*OW,p.ry*OH);
     }
@@ -2767,7 +2763,7 @@ const G3=(()=>{
     if(S.scene==='play'&&S.countdown>0){
       og.fillStyle='rgba(3,2,1,.6)';og.fillRect(0,0,OW,OH);
       og.textAlign='center';
-      og.font='700 110px DotGothic16';og.fillStyle='#FFC53D';
+      og.font=`700 ${Math.max(80,Math.round(OH*0.2))}px DotGothic16`;og.fillStyle='#FFC53D';
       const n=Math.ceil(S.countdown-0.6);
       og.fillText(n>0?String(n):'GO!',OW/2,OH/2+40);
       og.textAlign='left';
