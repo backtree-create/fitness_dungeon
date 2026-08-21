@@ -22,10 +22,28 @@ html,body{height:100%;background:#050302;overflow:hidden;
 #stage{position:relative;width:min(100vw,177.7vh,177.7svh);aspect-ratio:16/9;max-height:100svh;
   background:#050302;overflow:hidden;box-shadow:0 0 60px rgba(0,0,0,.8);display:flex}
 
-#stage.vs{flex-direction:column}
-#stage.vs #camPane{width:100%;height:35%;border-right:none;border-bottom:3px solid var(--board-line);
-  background:#0b0705}
+/* 2人モード：ゲームは全面。カメラは重ねて出し、全画面↔左下小窓を行き来する */
+#stage.vs #gamePane{width:100%;height:100%}
+#stage.vs #camPane{position:absolute;z-index:8;background:#0b0705;
+  border:3px solid var(--board-line);border-right:3px solid var(--board-line);
+  transition:left .35s ease, bottom .35s ease, width .35s ease, height .35s ease, border-radius .35s ease}
 #stage.vs #cam{object-fit:contain}
+#stage.vs.camfull #camPane{left:0;bottom:0;width:100%;height:100%;border-radius:0;border-width:0}
+#stage.vs.cammini #camPane{left:1.5%;bottom:2.5%;width:27%;height:38%;border-radius:6px;
+  box-shadow:0 6px 22px rgba(0,0,0,.6)}
+#camHint{position:absolute;left:50%;top:6%;transform:translateX(-50%);z-index:9;
+  background:rgba(10,7,3,.9);border:3px solid var(--amber);border-radius:4px;
+  padding:.5em 1.2em;display:none;text-align:center;max-width:86%}
+#camHint .h1{font-family:'DotGothic16',monospace;color:var(--amber);
+  font-size:clamp(14px,3vmin,24px);text-shadow:2px 2px 0 #140c04}
+#camHint .h2{font-size:clamp(10px,1.9vmin,14px);color:#C9BFA8;margin-top:.2em;line-height:1.6}
+#stage.vs.camfull #vsHud{display:none!important}
+#camToggle{position:absolute;right:1.5%;bottom:2.5%;z-index:9;display:none;
+  font-family:'DotGothic16',monospace;font-size:clamp(10px,1.9vmin,14px);
+  background:rgba(10,7,3,.88);color:var(--amber);border:3px solid #4a351e;
+  border-radius:4px;padding:.4em .9em;cursor:pointer}
+#camToggle:active{transform:translateY(2px)}
+#stage.vs #camToggle{display:block}
 #stage.vs #gamePane{width:100%}
 #vsHud{position:absolute;top:1.5%;left:1.5%;right:1.5%;z-index:7;display:none;
   justify-content:space-between;align-items:flex-start;gap:8px;pointer-events:none}
@@ -182,6 +200,8 @@ table.res td:last-child{text-align:right;font-family:'DotGothic16',monospace;col
     </div>
   </div>
   <div id="ovl"></div>
+  <div id="camHint"><div class="h1"></div><div class="h2"></div></div>
+  <button id="camToggle" type="button" hidden>カメラを大きく</button>
   <div id="vsHud">
     <div class="vsBoard" id="vsP1box"><div class="who">P1（左）</div><div class="sc" id="vsP1">0</div></div>
     <div class="miniBoard"><div class="lbl">TIME</div><div class="val" id="hTime2">0.0</div></div>
@@ -674,7 +694,7 @@ function drawCamSkeleton(list,np){
       const hx=POSE.slots[i].homeX;
       if(hx==null)continue;
       const lx=r.width-(ox+hx*dw);
-      cg.strokeStyle=PCOL[i];cg.globalAlpha=.3;cg.lineWidth=2;
+      cg.strokeStyle=PCOL[i];cg.globalAlpha=(camMode==='full'?.55:.3);cg.lineWidth=2;
       cg.setLineDash([6,6]);
       cg.beginPath();cg.moveTo(lx,oy);cg.lineTo(lx,oy+dh);cg.stroke();
       cg.setLineDash([]);cg.globalAlpha=1;
@@ -683,7 +703,7 @@ function drawCamSkeleton(list,np){
   for(let pi=0;pi<Math.min(list.length,np);pi++){
     const lm=list[pi];if(!lm)continue;
     cg.strokeStyle=(np>1?PCOL[pi]:'rgba(90,211,138,.9)');
-    cg.lineWidth=3;cg.lineCap='round';
+    cg.lineWidth=(np>1&&camMode==='mini')?4:3;cg.lineCap='round';
     for(const[a2,b2]of BONES){
       if(!lm[a2]||!lm[b2])continue;
       cg.beginPath();cg.moveTo(X(lm[a2]),Y(lm[a2]));cg.lineTo(X(lm[b2]),Y(lm[b2]));cg.stroke();
@@ -693,8 +713,9 @@ function drawCamSkeleton(list,np){
     if(np>1&&lm[LMK.NOSE]){
       const lx=X(lm[LMK.NOSE]),ly=Y(lm[LMK.NOSE])-26;
       cg.fillStyle=POSE.slots[pi].amb?'#E5533C':PCOL[pi];
-      cg.fillRect(lx-16,ly-14,32,18);
-      cg.fillStyle='#140c04';cg.font='700 13px DotGothic16';cg.textAlign='center';
+      const small=(camMode==='mini');
+      cg.fillRect(lx-(small?13:16),ly-(small?12:14),small?26:32,small?15:18);
+      cg.fillStyle='#140c04';cg.font=(small?'700 11px':'700 13px')+' DotGothic16';cg.textAlign='center';
       cg.fillText('P'+(pi+1),lx,ly);cg.textAlign='left';
     }
   }
@@ -958,7 +979,9 @@ const ovl=$('#ovl');
 function screenMenu(){
   S.scene='menu';
   hideHome(false);
-  S.np=1;document.getElementById('stage').classList.remove('vs');
+  S.np=1;S.paused=false;
+  document.getElementById('stage').classList.remove('vs','camfull','cammini');
+  $('#camHint').style.display='none';
   $('#depthMeter').style.display='none';
   $('#task').style.display='none';$('#topHud').style.display='none';$('#vsHud').style.display='none';
   $('#practiceBar').style.display='none';$('#streak').style.display='none';
@@ -1030,6 +1053,10 @@ function screenCalib(){
     POSE.slots[i]={homeX:null,lastX:null,lost:0,amb:false};
   }
   POSE.calibOn=true;
+  if(S.np>1){
+    document.getElementById('stage').classList.add('vs');
+    setCamMode('full','立ち位置を決めます','2人とも全身が映るまで下がってください');
+  }
   calibWatch();
 }
 function calibWatch(){
@@ -1051,6 +1078,8 @@ function updCalib(pct){
 }
 function calibDone(){
   SFX.dodge();
+  if(S.np>1)setCamMode('full','立ち位置を記録しました',
+    '点線が2人の定位置です。ここに戻れば、いつでも認識し直せます');
   ovl.innerHTML=`
    <div class="panel">
      <div class="eyebrow">READY</div>
@@ -1064,6 +1093,7 @@ function calibDone(){
 }
 function screenStageSelect(){
   S.scene='stagesel';hideHome(false);
+  if(S.np>1)setCamMode('full','立ち位置の確認','この画面のうちに、点線の位置に立っておこう');
   ovl.style.display='flex';
   const stars=n=>'★'.repeat(STAGES[n-1].stars)+'☆'.repeat(4-STAGES[n-1].stars);
   let grid='';
@@ -1092,6 +1122,35 @@ function drawHearts(){
   }
   el.innerHTML=html;
 }
+let camMode='mini';
+function setCamMode(m,hint,sub){
+  camMode=m;
+  const st=document.getElementById('stage');
+  if(S.np<2){st.classList.remove('camfull','cammini');return;}
+  st.classList.toggle('camfull',m==='full');
+  st.classList.toggle('cammini',m==='mini');
+  const hintEl=$('#camHint');
+  if(hint){
+    hintEl.style.display='block';
+    hintEl.querySelector('.h1').textContent=hint;
+    hintEl.querySelector('.h2').innerHTML=sub||'';
+  } else hintEl.style.display='none';
+  fitCam();
+  setTimeout(fitCam,120);setTimeout(fitCam,380);
+}
+(function(){
+  const b=document.getElementById('camToggle');
+  b.hidden=false;
+  b.onclick=()=>{
+    if(camMode==='full'){
+      if(S.paused)return;           // 復帰待ちのときは閉じさせない
+      setCamMode('mini');b.textContent='カメラを大きく';
+    } else {
+      setCamMode('full','カメラを確認中','もう一度押すとゲームに戻ります');
+      b.textContent='ゲームに戻る';
+    }
+  };
+})();
 function hideHome(on){
   const hb=document.getElementById('homeBtn');
   if(hb && !hb.hidden) hb.style.visibility = on?'hidden':'visible';
@@ -1107,6 +1166,8 @@ function startRun(stageN){
   lastJumpAny=-9;
   hideHome(true);
   document.getElementById('stage').classList.toggle('vs',S.np>1);
+  S.paused=false;S.lostT=0;S.okT=0;
+  if(S.np>1)setCamMode('mini');
   $('#task').style.display='block';
   $('#topHud').style.display=S.np>1?'none':'flex';
   $('#vsHud').style.display=S.np>1?'flex':'none';
@@ -1125,7 +1186,8 @@ function startRun(stageN){
        <p class="sub">${nm[1]}</p>
        <button class="btn" id="goBrief">わかった！</button>
      </div>`;
-    $('#goBrief').onclick=()=>{ac();S.scene='play';ovl.style.display='none';ovl.innerHTML='';};
+    $('#goBrief').onclick=()=>{ac();S.scene='play';ovl.style.display='none';ovl.innerHTML='';
+      if(S.np>1)setCamMode('mini');};
   }
 }
 function updTask(){
@@ -1323,6 +1385,23 @@ function update(dt){
     if(after<before&&after>0)SFX.count();
     if(S.countdown<=0){SFX.go();}
     return;
+  }
+  // 2人モード：どちらかを見失ったらカメラを開いて仕切り直す
+  if(S.np>1&&S.mode==='camera'){
+    const ok=POSE.P[0].visible&&POSE.P[1].visible&&!POSE.slots[0].amb&&!POSE.slots[1].amb;
+    if(ok){S.okT=(S.okT||0)+dt;S.lostT=0;}else{S.lostT=(S.lostT||0)+dt;S.okT=0;}
+    if(!S.paused&&S.lostT>1.2){
+      S.paused=true;
+      const miss=[];
+      for(let i=0;i<2;i++) if(!POSE.P[i].visible) miss.push('P'+(i+1));
+      setCamMode('full','一時停止：位置を直してください',
+        (miss.length?miss.join('・')+'が映っていません。':'どちらがどちらか判別できません。')
+        +'<br>点線の立ち位置に戻り、2人とも全身が入ると再開します');
+    }
+    if(S.paused&&S.okT>0.8){
+      S.paused=false;setCamMode('mini');SFX.go();
+    }
+    if(S.paused)return;
   }
   S.t+=dt;
   if(!S.enc){
@@ -2647,6 +2726,9 @@ const G3=(()=>{
       const rg=og.createRadialGradient(OW/2,OH/2,OH*0.2,OW/2,OH/2,OH*0.8);
       rg.addColorStop(0,'rgba(229,83,60,0)');rg.addColorStop(1,`rgba(229,83,60,${S.redFlash*0.9})`);
       og.fillStyle=rg;og.fillRect(0,0,OW,OH);
+    }
+    if(S.paused){
+      og.fillStyle='rgba(8,4,2,.55)';og.fillRect(0,0,OW,OH);
     }
     if(S.scene==='play'&&S.countdown>0){
       og.fillStyle='rgba(3,2,1,.6)';og.fillRect(0,0,OW,OH);
