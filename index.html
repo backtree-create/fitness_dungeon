@@ -17,9 +17,9 @@
 html,body{height:100%;background:#050302;overflow:hidden;
   font-family:'Zen Kaku Gothic New',sans-serif;color:var(--white);
   touch-action:manipulation;user-select:none;-webkit-user-select:none}
-#wrap{height:100%;display:flex;align-items:center;justify-content:center;
+#wrap{height:100%;height:100svh;display:flex;align-items:center;justify-content:center;
   background:radial-gradient(120% 90% at 50% 0%, #1A1008 0%, #050302 60%)}
-#stage{position:relative;width:min(100vw,177.7vh);aspect-ratio:16/9;max-height:100vh;
+#stage{position:relative;width:min(100vw,177.7vh,177.7svh);aspect-ratio:16/9;max-height:100svh;
   background:#050302;overflow:hidden;box-shadow:0 0 60px rgba(0,0,0,.8);display:flex}
 
 #camPane{position:relative;width:30%;height:100%;background:#080503;border-right:2px solid var(--board-line);overflow:hidden}
@@ -70,7 +70,7 @@ html,body{height:100%;background:#050302;overflow:hidden;
   flex-wrap:wrap;justify-content:center;max-width:92%}
 .pBtn{border:3px solid #4a351e;background:rgba(10,7,3,.85);color:var(--white);
   border-radius:4px;font-family:'DotGothic16',monospace;
-  font-size:clamp(13px,2.4vmin,18px);padding:.8em 1.4em;cursor:pointer}
+  font-size:clamp(11px,2.2vmin,18px);padding:.5em .9em;cursor:pointer;white-space:nowrap}
 .pBtn:active{background:rgba(255,197,61,.3);border-color:var(--amber)}
 
 #ovl{position:absolute;inset:0;z-index:10;display:flex;align-items:center;justify-content:center}
@@ -132,7 +132,7 @@ table.res td:last-child{text-align:right;font-family:'DotGothic16',monospace;col
 #rotateHint{position:fixed;inset:0;background:#050302;z-index:99;display:none;
   align-items:center;justify-content:center;text-align:center;font-weight:900;
   font-size:clamp(16px,4.5vw,24px);line-height:2;padding:8%}
-@media (orientation:portrait) and (max-width:600px){ #rotateHint{display:flex} }
+@media (orientation:portrait) and (max-width:1024px){ #rotateHint{display:flex} }
 @media (prefers-reduced-motion:reduce){ *{animation:none !important;transition:none !important} }
 </style>
 </head>
@@ -754,6 +754,7 @@ function updateEncounter(dt){
 const ovl=$('#ovl');
 function screenMenu(){
   S.scene='menu';
+  hideHome(false);
   $('#depthMeter').style.display='none';
   $('#task').style.display='none';$('#topHud').style.display='none';
   $('#practiceBar').style.display='none';$('#streak').style.display='none';
@@ -839,7 +840,7 @@ function calibDone(){
   $('#goRun').onclick=()=>screenStageSelect();
 }
 function screenStageSelect(){
-  S.scene='stagesel';
+  S.scene='stagesel';hideHome(false);
   ovl.style.display='flex';
   const stars=n=>'★'.repeat(STAGES[n-1].stars)+'☆'.repeat(4-STAGES[n-1].stars);
   let grid='';
@@ -868,6 +869,10 @@ function drawHearts(){
   }
   el.innerHTML=html;
 }
+function hideHome(on){
+  const hb=document.getElementById('homeBtn');
+  if(hb && !hb.hidden) hb.style.visibility = on?'hidden':'visible';
+}
 function startRun(stageN){
   S.stage=stageN||S.stage||1;
   S.scene='play';ovl.style.display='none';ovl.innerHTML='';
@@ -878,6 +883,7 @@ function startRun(stageN){
   S.shake=0;S.redFlash=0;S.popups=[];S.slash=null;
   S.countdown=3.6;
   lastJumpAny=-9;
+  hideHome(true);
   $('#task').style.display='block';$('#topHud').style.display='flex';
   $('#streak').style.display='block';
   $('#practiceBar').style.display=S.mode==='practice'?'flex':'none';
@@ -956,6 +962,7 @@ function rankOf(sc,stage){
 function finishRun(){
   if(S.scene!=='play')return;
   S.scene='clear';SFX.chest();
+  hideHome(false);
   $('#depthMeter').style.display='none';
   addScore(S.hearts*150,null);
   $('#task').style.display='none';$('#practiceBar').style.display='none';$('#streak').style.display='none';
@@ -1007,6 +1014,7 @@ function finishRun(){
 function gameOver(){
   if(S.scene!=='play')return;
   S.scene='over';SFX.down();
+  hideHome(false);
   $('#depthMeter').style.display='none';
   $('#task').style.display='none';$('#practiceBar').style.display='none';$('#streak').style.display='none';
   ovl.style.display='flex';
