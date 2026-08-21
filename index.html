@@ -23,10 +23,12 @@ html,body{height:100%;background:#050302;overflow:hidden;
   background:#050302;overflow:hidden;box-shadow:0 0 60px rgba(0,0,0,.8);display:flex}
 
 #stage.vs{flex-direction:column}
-#stage.vs #camPane{width:100%;height:27%;border-right:none;border-bottom:3px solid var(--board-line)}
+#stage.vs #camPane{width:100%;height:35%;border-right:none;border-bottom:3px solid var(--board-line);
+  background:#0b0705}
+#stage.vs #cam{object-fit:contain}
 #stage.vs #gamePane{width:100%}
-#vsHud{position:absolute;top:1.5%;left:1.5%;right:1.5%;z-index:5;display:none;
-  justify-content:space-between;gap:8px}
+#vsHud{position:absolute;top:1.5%;left:1.5%;right:1.5%;z-index:7;display:none;
+  justify-content:space-between;align-items:flex-start;gap:8px;pointer-events:none}
 .vsBoard{background:rgba(10,7,3,.9);border:3px solid #4a351e;border-radius:4px;
   padding:.25em .9em;text-align:center;min-width:26%}
 .vsBoard .who{font-family:'DotGothic16',monospace;font-size:clamp(9px,1.6vmin,13px);letter-spacing:.15em}
@@ -161,11 +163,6 @@ table.res td:last-child{text-align:right;font-family:'DotGothic16',monospace;col
   <div id="gamePane">
     <canvas id="glv"></canvas>
     <canvas id="ov2"></canvas>
-    <div id="vsHud">
-      <div class="vsBoard" id="vsP1box"><div class="who">P1（左）</div><div class="sc" id="vsP1">0</div></div>
-      <div class="miniBoard"><div class="lbl">TIME</div><div class="val" id="hTime2">0.0</div></div>
-      <div class="vsBoard" id="vsP2box"><div class="who">P2（右）</div><div class="sc" id="vsP2">0</div></div>
-    </div>
     <div id="topHud">
       <div class="miniBoard" id="hearts"></div>
       <div class="miniBoard"><div class="lbl">SCORE</div><div class="val" id="hScore">0</div></div>
@@ -185,6 +182,11 @@ table.res td:last-child{text-align:right;font-family:'DotGothic16',monospace;col
     </div>
   </div>
   <div id="ovl"></div>
+  <div id="vsHud">
+    <div class="vsBoard" id="vsP1box"><div class="who">P1（左）</div><div class="sc" id="vsP1">0</div></div>
+    <div class="miniBoard"><div class="lbl">TIME</div><div class="val" id="hTime2">0.0</div></div>
+    <div class="vsBoard" id="vsP2box"><div class="who">P2（右）</div><div class="sc" id="vsP2">0</div></div>
+  </div>
  </div>
 </div>
 <button id="homeBtn" type="button" hidden>&#8962; まなびの基板</button>
@@ -467,7 +469,12 @@ async function initPose(){
   try{POSE.landmarker=await vision.PoseLandmarker.createFromOptions(files,opts('GPU'));}
   catch(e){POSE.landmarker=await vision.PoseLandmarker.createFromOptions(files,opts('CPU'));}
   stat.textContent='カメラを起動中…';
-  const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false});
+  const want=(S.np>1)
+    ? {facingMode:'user',width:{ideal:1280},height:{ideal:960},aspectRatio:{ideal:4/3}}
+    : {facingMode:'user',width:{ideal:640},height:{ideal:480}};
+  let stream;
+  try{ stream=await navigator.mediaDevices.getUserMedia({video:want,audio:false}); }
+  catch(e){ stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false}); }
   POSE.video.srcObject=stream;
   await new Promise(r=>POSE.video.onloadedmetadata=r);
   await POSE.video.play();
@@ -653,18 +660,23 @@ function drawCamSkeleton(list,np){
   cg.clearRect(0,0,r.width,r.height);
   if(!list||!list.length)return;
   const v=POSE.video;
-  const sc=Math.max(r.width/v.videoWidth,r.height/v.videoHeight);
+  const sc=(np>1)
+    ? Math.min(r.width/v.videoWidth,r.height/v.videoHeight)
+    : Math.max(r.width/v.videoWidth,r.height/v.videoHeight);
   const dw=v.videoWidth*sc,dh=v.videoHeight*sc;
   const ox=(r.width-dw)/2,oy=(r.height-dh)/2;
   const X=p=>r.width-(ox+p.x*dw),Y=p=>oy+p.y*dh;
   if(np>1){
+    cg.fillStyle='rgba(0,0,0,.55)';
+    if(ox>0){cg.fillRect(0,0,ox,r.height);cg.fillRect(ox+dw,0,r.width-ox-dw,r.height);}
+    if(oy>0){cg.fillRect(0,0,r.width,oy);cg.fillRect(0,oy+dh,r.width,r.height-oy-dh);}
     for(let i=0;i<2;i++){
       const hx=POSE.slots[i].homeX;
       if(hx==null)continue;
       const lx=r.width-(ox+hx*dw);
-      cg.strokeStyle=PCOL[i];cg.globalAlpha=.28;cg.lineWidth=2;
+      cg.strokeStyle=PCOL[i];cg.globalAlpha=.3;cg.lineWidth=2;
       cg.setLineDash([6,6]);
-      cg.beginPath();cg.moveTo(lx,0);cg.lineTo(lx,r.height);cg.stroke();
+      cg.beginPath();cg.moveTo(lx,oy);cg.lineTo(lx,oy+dh);cg.stroke();
       cg.setLineDash([]);cg.globalAlpha=1;
     }
   }
@@ -963,6 +975,9 @@ function screenMenu(){
      <p class="sub">きみの目がカメラだ。しゃがめば視点が下がり、跳べば視界が浮く。<br>
      落石はカウントダウン、モンスターは「！」のあと本当に襲ってくる。ハート3つで挑め。</p>
      <div class="safety"><b>安全のために：</b>周囲2歩ぶんのスペース確保／すべらない床で／準備運動をしてから／息が上がったら休む・水分補給。<b>痛みを感じたらすぐ中止。</b></div>
+     <div class="safety" style="background:rgba(255,197,61,.07);border-color:rgba(255,197,61,.5)">
+       <b style="color:var(--amber)">2人で対戦するときは：</b>カメラから<b>2.5m</b>ほど離れ、2人が<b>1m</b>間隔で並べる場所で。
+       立ち位置に床テープを貼ると取り違えが起きません。</div>
      <button class="btn" id="goCam">1人でプレイ（カメラ）</button>
      <button class="btn" id="goVs">2人で対戦（カメラ）</button>
      <button class="btn ghost" id="goPractice">練習モード（カメラなし）</button>
@@ -998,7 +1013,7 @@ function screenCalib(){
      <div class="eyebrow">CALIBRATION</div>
      <h2>基準の姿勢を覚えます</h2>
      <p class="sub">${S.np>1
-       ? 'カメラに<b>2人とも全身が映る</b>ように、1mほど離れて並んでください。<br>画面の<b>左がP1（黄）、右がP2（緑）</b>です。そのまま<b>気をつけの姿勢で静止</b>。'
+       ? 'カメラから<b>2.5mほど下がり</b>、2人が<b>1m離れて</b>並んでください。<br>暗くなっていない範囲に<b>2人とも全身</b>が入ればOK。<br>画面の<b>左がP1（黄）、右がP2（緑）</b>。そのまま<b>気をつけの姿勢で静止</b>。'
        : 'カメラに<b>頭から足首まで</b>が映るように下がって、<br><b>気をつけの姿勢でじっと立ってください。</b>'}</p>
      <div id="calibRing">
        <svg viewBox="0 0 100 100">
